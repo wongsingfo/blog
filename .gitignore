@@ -1,0 +1,6 @@
+/.hugo_build.lock
+
+# Caches some files to speed up generation. 
+/resources
+
+/public
