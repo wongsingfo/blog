@@ -1,1 +1,22 @@
-<?xml-stylesheet href="/rss.xsl" type="text/xsl"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Chengke</title><link>https://www.chengke.wang/</link><description>Recent content on Chengke</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="https://www.chengke.wang/index.xml" rel="self" type="application/rss+xml"/></channel></rss>
+<?xml-stylesheet href="/rss.xsl" type="text/xsl"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Chengke</title><link>https://www.chengke.wang/</link><description>Recent content on Chengke</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Sun, 12 Jun 2022 12:58:12 +0800</lastBuildDate><atom:link href="https://www.chengke.wang/index.xml" rel="self" type="application/rss+xml"/><item><title>Friends</title><link>https://www.chengke.wang/friends/</link><pubDate>Sun, 12 Jun 2022 12:58:13 +0800</pubDate><guid>https://www.chengke.wang/friends/</guid><description>Chengke https://www.chengke.wang/friends/ -&lt;ul>
+&lt;li>&lt;a href="https://witty-me.github.io/">Kenuo Xu&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://magic3007.github.io/">Jing Mai&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://galaxywalk.github.io/">Bo Liang&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://keke046.github.io/">Keke&lt;/a>&lt;/li>
+&lt;/ul>
+- https://www.chengke.wang/friends/ -</description></item><item><title>About Me</title><link>https://www.chengke.wang/about/</link><pubDate>Sun, 12 Jun 2022 12:58:12 +0800</pubDate><guid>https://www.chengke.wang/about/</guid><description>Chengke https://www.chengke.wang/about/ -&lt;h1 id="wip-施工中">WIP 施工中&lt;/h1>
+- https://www.chengke.wang/about/ -</description></item><item><title>My First Post</title><link>https://www.chengke.wang/posts/my-first-post/</link><pubDate>Sun, 12 Jun 2022 12:58:12 +0800</pubDate><guid>https://www.chengke.wang/posts/my-first-post/</guid><description>Chengke https://www.chengke.wang/posts/my-first-post/ -&lt;p>This post marks the birth of this blog.&lt;/p>
+&lt;h1 id="why-blogging">Why blogging?&lt;/h1>
+&lt;p>My experience is that:&lt;/p>
+&lt;ul>
+&lt;li>Blogging is an efficient way to consolidate the knowledge I have gained. Reading and writing regularly can keep the mind active.&lt;/li>
+&lt;li>Blogging is a convenient way to share new ideas and thought with others in the digital world.&lt;/li>
+&lt;/ul>
+&lt;h1 id="what-to-blog-about">What to blog about?&lt;/h1>
+&lt;p>I will share the following things in this blog.&lt;/p>
+&lt;ul>
+&lt;li>Paper reading notes&lt;/li>
+&lt;li>Interesting things about computer systems&lt;/li>
+&lt;li>Exciting things in my life&lt;/li>
+&lt;/ul>
+- https://www.chengke.wang/posts/my-first-post/ -</description></item></channel></rss>
