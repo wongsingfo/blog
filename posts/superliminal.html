@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>错觉艺术：《超阈限空间》游玩感想</title>
+        <link rel="stylesheet" href="/css/normalize.min.css">
+        <link rel="stylesheet" href="/css/magick.css">
+        <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+        <link rel="icon" href="/favicon.ico" type="image/x-icon">
+        <script>
+            // Immediately set the theme based on user's preference stored in localStorage
+            (function() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme) {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                    document.documentElement.style.colorScheme = savedTheme;
+                } else {
+                    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const defaultTheme = prefersDarkScheme ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', defaultTheme);
+                    document.documentElement.style.colorScheme = defaultTheme;
+                }
+            })();
+        </script>
+    </head>
+    <body>
+        <div>
+            <main>
+                <header>
+                    <nav>
+                        <ul>
+                            <li><a href="/">Posts</a></li>
+                            <li><a href="/friends.html">Friends</a></li>
+                            <li><a href="/about.html">About</a></li>
+                            <li id="theme-toggle"><a><span class="fas fa-moon"></span></a></li>
+                        </ul>
+                    </nav>
+                    <h1>错觉艺术：《超阈限空间》游玩感想</h1>
+                </header>
+                <section>
+                    <blockquote>
+<p>就是因为我们太在乎失败，才会拒绝用其他的角度来看待事物。</p>
+<footer> ——序曲《超阈限空间（Superliminal）》 </footer>
+</blockquote>
+</section><section>
+<h2>游戏简介</h2>
+<p>《超阈限空间》是一款 2019 年由 Pillow Castle Games 发行的基于视觉错觉的第一人称解谜游戏。我认为游戏中有三大特色玩法，分别是近大远小、传送门和鬼打墙。</p>
+<p><figure><img src="/images/Superliminal0.png" title="" /><figcaption>游戏被分为九个大关卡，每个关卡有自己的主题，艺术风格大不相同</figcaption></figure></p>
+</section><section>
+<h3>核心玩法 1：近大远小</h3>
+<p>第一个玩法我称之为“近大远小”，下面三张图应该很好地解释了这个玩法的特点。</p>
+<p><figure><img src="/images/Superliminal1.png" title="" /><figcaption>有一个巨大的棋子挡住去路</figcaption></figure></p>
+<p><figure><img src="/images/Superliminal2.png" title="" /><figcaption>拾起棋子并放到一边，虽然视觉上还是一样大，但是棋子实际上变小了！</figcaption></figure></p>
+<p><figure><img src="/images/Superliminal3.png" title="" /><figcaption>放下棋子后，可以顺利通过道路</figcaption></figure></p>
+<p>这个玩法在游戏一开始就被介绍了，可见作者认为这是游戏最大的卖点。但我觉得下面两个玩法更精彩。</p>
+</section><section>
+<h3>核心玩法 2：传送门</h3>
+<p>传送门的内核很简单：有两扇匹配的门，如果从其中一个门进去，就会从另一个门出来。这不是什么新奇事，但是当“传送门”和“近大远小”的玩法结合起来时，出现了一种新的可能：我们操作的角色可以变成巨人，也可以变成小人！让我来解释一下是怎么办到的。假设有两扇匹配的<em>大小一样</em>的传递门，记为A和B。我们可以用“近大远小”的特点，将其中一扇（不妨设为B）门变小。此时，如果我们从A门进去，再从B出来时，因为B变小了，所以人也会等比例变小！人变大也是类似的道理。利用这种变大变小的特点，可以设计出很多有趣的关卡。</p>
+<p>你可能会想到一个有趣的问题：还是假设有两扇匹配的门，如果我们手上拿着一扇门，从另一扇门出来会发生什么事情呢？事实上游戏并不允许这样做。游戏在最后一个章节回答了这个问题。</p>
+</section><section>
+<h3>核心玩法 3：鬼打墙</h3>
+<p>我用鬼打墙这个词，是想形容游戏根据玩家操作实时生成地图从而达到迷惑玩家的效果的设计。这种迷惑效果甚至常常让我感到恐惧，所以想到了这个词。一个最简单的应用就是让玩家感觉自己走了很远，但实际仍然在同一个地方。这里就不剧透了😀。</p>
+</section><section>
+<h2>个人体验</h2>
+<p>游戏的玩法很新颖，很容易让人感到眼前一亮。但是我觉得这款游戏的设计点不是很清晰。</p>
+<p>首先，旁白的设计画蛇添足。几乎每个游戏都有自己的目标（比如《原神》的目标是找回失散的亲人），这款游戏也不例外：我们接受了梦境实验疗法，需要逃出超现实的梦境世界。游戏为了展现这点，采用了类似《史丹利的寓言》<span class="sidenote-anchor"></span><span class="sidenote">《史丹利的寓言》（The Stanley Parable）是一款具有多结局的叙事冒险游戏，其突出特点是打破第四面墙的叙述风格。</span>的旁白。然而，旁白与游戏内容太割裂了。我很难理解旁白的对话和当时游戏的关卡和“视觉错觉”机制有什么关联。旁白的内容也很平淡，没有给我留下什么印象，唯一有印象的是游戏快结束的时候，开始围绕“就是因为我们太在乎失败，才会拒绝用其他的角度来看待事物”进行解说。让我的感觉就是写文章写跑题了，到了结尾才意识到，然后急匆匆点了点题，再加点故作玄虚的升华。我觉得旁白完全可以更有意思点，比如结合关卡的特点，对玩家进行解说和引导。哪怕完全移除旁白，游戏的体验也会好很多。</p>
+<p>其次，游戏加入了很多没有必要的，带有恐怖暗示的元素。比如游戏中经常出现高空坠落的场景，有些甚至是突然发生的。而且纯色干净的墙上无缘无故会有红色的油漆！恐怖的设计在“黑暗”这一大关卡中尤其明显，这里有闪烁的灯，红色的光，杂乱的物品。我在玩的时候真的很想跳过这些关卡！我不明白为什么要这样设计，事后来看这些设计也完全没有增加游戏的可玩性和关卡的趣味性。本来游戏的定位是休闲娱乐向的解谜，加入这些元素非常不合时宜。更不合理的是，出现这些元素的时候，还放着舒缓的音乐。倒不是说这些设计不好，只是用错了地方，如果这是一款恐怖探险游戏（比如具有“后室”<span class="sidenote-anchor"></span><span class="sidenote">后室是一个由随机产生、大小不一的房间组成的办公室迷宫。其具体表现形式为“阴森、无人居住空间的图像”。</span>风格游戏），这些设计就很加分。</p>
+<p>同时，这款游戏的某些关卡可能对怀有“密集恐惧症”、“巨物恐惧症”或“广场/幽闭恐惧症”的玩家不是很友好。</p>
+</section><section>
+<h2>游戏总结</h2>
+<ul>
+<li>游戏类型：视觉错觉、解谜</li>
+<li>个人评分：3/5，扣分主要是因为我觉得游戏加了很多无用的设计点。</li>
+<li>游戏时长：一周目 4 小时</li>
+</ul>
+<p>游戏流程不长，值得体验。不少关卡的设计第一次看见时会有很大震撼。二周目还有收集小物品（蓝图、象棋棋子、星座和汽水）的流程，和最少操作数通关的挑战，但是个人觉得没什么意思。有意思的一个是“开发者模式”，作者会在游戏的过程中以旁白的方式和玩家介绍游戏是怎么设计和开发的。</p>
+
+                </section>
+                <footer>
+                </footer>
+            </main>
+        </div>
+        <script src="/js/script.js"></script>
+    </body>
+</html>
