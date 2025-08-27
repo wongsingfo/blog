@@ -20,8 +20,8 @@
 
 :root {
     /* Theme colors */
-    --fg: #0e0e0e;
-    --bg: #fefefe;
+    --fg: #1f1f1f;
+    --bg: #f2f2f2;
     --form-bg: #fbfbfb;
     --form-fg: #00004d;
     --form-fg-placeholder: #00004d9a;
@@ -31,8 +31,8 @@
 /* @media (prefers-color-scheme: dark) { */
     /* :root { */
 [data-theme="dark"] {
-    --fg: #dedede;
-    --bg: #292929;
+    --fg: #bfbfbf;
+    --bg: #1f1f1f;
     --form-bg: #1a1a1a;
     --form-fg: #fefefe;
     --form-fg-placeholder: #fefefe9a;
@@ -65,7 +65,7 @@ body {
     font-size: 1.8rem; /* 1 */
     background-color: var(--bg); /* 2 */
     color: var(--fg); /* 2 */
-    font-family: "Averia Serif Libre", serif; /* 3 */
+    font-family: "Averia Serif Libre", sans-serif ; /* 3 */
     font-style: normal; /* 3 */
     line-height: 2.5rem; /* 3 */
     font-weight: 300; /* 3 */

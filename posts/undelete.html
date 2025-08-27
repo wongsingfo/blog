@@ -90,9 +90,7 @@
 00025c90: ac50 cc56 0000 2a5a ac50 741b fae9 0f00  .P.V..*Z.Pt.....
 </code></pre>
 <p>一开始遇到这种情况时我很困惑，以为是一个空文件（因为文件大小为零），但是在挂载之后又找不到同样名字的文件。后来我注意到这个目录项的短文件名的第一个字符不是可读的 ASCII 字符，怀疑它可能有特殊含义。在文档中搜索“E5”，果然发现了相关的说明：</p>
-<blockquote>
-<p>0xE5 indicates the directory entry is free (available). However, 0xE5 is a valid KANJI （注：日本汉字，是书写日语时所使用的汉字） lead byte value for the character set used in Japan. For KANJI character set based names, the value 0x05 is stored in DIR_Name[0] - if required - to represent 0xE5. If the FAT file system implementation reads DIR_NAME[0] = 0x05 and if the character set used is KANJI, it must perform the appropriate substitution in memory prior to returning the name to the application.</p>
-</blockquote>
+<p><code>0xE5</code> indicates the directory entry is free (available). However, <code>0xE5</code> is a valid KANJI<span class="sidenote-anchor"></span><span class="sidenote">日本汉字，是书写日语时所使用的汉字</span> lead byte value for the character set used in Japan. For KANJI character set based names, the value <code>0x05</code> is stored in <code>DIR_Name[0]</code> - if required - to represent <code>0xE5</code>. If the FAT file system implementation reads <code>DIR_NAME[0] = 0x05</code> and if the character set used is KANJI, it must perform the appropriate substitution in memory prior to returning the name to the application.</p>
 <p>至此，我们已经恢复了所有图片文件的名称、大小和第一个簇的编号。</p>
 </section><section>
 <h3>恢复图片数据</h3>
@@ -132,6 +130,8 @@
 
                 </section>
                 <footer>
+                    <hr>
+                    <p style="font-size: 1.4rem">Published Date: 2023-06-11 17:51:27 +0800 <br/> Powered by <a href="https://css.winterveil.net/">MAGICK.CSS</a> and <a href="https://cobalt-org.github.io/">Cobalt</a></p>
                 </footer>
             </main>
         </div>
