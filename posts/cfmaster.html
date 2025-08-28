@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Experiences on Reaching Master on Codeforeces</title>
+        <link rel="stylesheet" href="/css/normalize.min.css">
+        <link rel="stylesheet" href="/css/magick.css">
+        <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+        <link rel="icon" href="/favicon.ico" type="image/x-icon">
+        <script>
+            // Immediately set the theme based on user's preference stored in localStorage
+            (function() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme) {
+                    document.documentElement.setAttribute('data-theme', savedTheme);
+                    document.documentElement.style.colorScheme = savedTheme;
+                } else {
+                    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const defaultTheme = prefersDarkScheme ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', defaultTheme);
+                    document.documentElement.style.colorScheme = defaultTheme;
+                }
+            })();
+        </script>
+    </head>
+    <body>
+        <div>
+            <main>
+                <header>
+                    <nav>
+                        <ul>
+                            <li><a href="/">Posts</a></li>
+                            <li><a href="/friends.html">Friends</a></li>
+                            <li><a href="/about.html">About</a></li>
+                            <li id="theme-toggle"><a><span class="fas fa-moon"></span></a></li>
+                        </ul>
+                    </nav>
+                    <h1>Experiences on Reaching Master on Codeforeces</h1>
+                </header>
+                <section>
+                    <p>After 5 months of participation in the contests, I'm pleased to have achieved the Master title<span class="sidenote-anchor"></span><span class="sidenote">Master rank represents the <a href="https://codeforces.com/blog/entry/68288">top 3%</a> of users.</span> on <a href="https://codeforces.com/">Codeforces</a>. This blog post share my experience.</p>
+<p>Codeforces is a well-known competitive programming platform hosting weekly 2-hour contests. I find problem-solving on Codeforces to be a stimulating mental exercise. While the problems presented differ significantly from typical programming tasks at work, the process of solving them, and learning from the solutions of others, cultivates the following valuable skills:</p>
+<ul>
+<li>The skill to approach problems from diverse perspectives.</li>
+<li>The skill to break down complex problems into manageable steps.</li>
+<li>The skill to write correct, bug-free code in a single attempt.</li>
+</ul>
+<p>In the following sections, I will detail my coding environment setup and share some common problem-solving techniques.</p>
+</section><section>
+<h2>Coding Environment Setup</h2>
+<p>To facilitate efficient coding in a competitive environment, I use the following setup. All code is available in my <a href="https://github.com/wongsingfo/cf-master">GitHub repository</a>.</p>
+<ul>
+<li><strong>Makefile:</strong> I use a <code>Makefile</code> as a central point to run various tools, including those for generating boilerplate code, running tests, and debugging with GDB.</li>
+<li><strong>LLM for Boilerplate:</strong> I leverage an LLM to generate boilerplate code for input and output handling. As per Codeforces' <a href="https://codeforces.com/blog/entry/133941">Rule Restricting the Use of AI</a>, this is permitted. However, relying on LLM to generate algorithmic logic or the key solution is strictly prohibited.</li>
+<li><strong>Address Sanitizer:</strong> I utilize Address Sanitizer to detect potential memory errors.</li>
+<li><strong>Code Template</strong>: I maintain a collection of pre-written code templates for common algorithms like max flow and segment tree.</li>
+</ul>
+</section><section>
+<h2>Idea Checklist</h2>
+<p>While there's no universal solution for every problem, the following checklist offers helpful starting points. I've compiled these ideas based on interesting problems encountered on my journey to achieving Master tier.</p>
+</section><section>
+<h3>Incremental Approach: Adding One Element at a Time</h3>
+<ul>
+<li><strong>Lists of Numbers</strong>: When dealing with a problem involving a list of numbers, a useful strategy is to reduce the problem to a smaller size. Specifically, consider how the solution for a list of <code>n-1</code> elements changes when you add one more element. By incrementally building the solution in this way, you can often gain insights into how to handle the full list. Related Problems: <a href="https://codeforces.com/contest/1969/problem/E">1969E - Unique Array</a>, <a href="https://codeforces.com/problemset/problem/1997/E">1997E - Level Up</a>. When dealing with palindromes, try to consider the middle element or the head and tail elements. Related Problems: <a href="https://codeforces.com/contest/2004/problem/F">2004F - Make a Palindrome</a></li>
+<li><strong>Trees as Special Lists</strong>: Trees can be approached similarly to lists, but with added complexity due to their hierarchical structure. Start by solving the problem for a small subtree, then progressively expand the solution to larger subtrees, and finally address the entire tree, including the root. Be cautious with the root node, as it may require different handling compared to other nodes. Related Problems: <a href="https://codeforces.com/contest/1987/problem/E">1987E - Wonderful Tree!</a>.
+<ul>
+<li>For tree, solve two special cases first: link and star graph.</li>
+</ul>
+</li>
+<li><strong>Add/remove a special element.</strong> You can add the element incrementally from smallest to largest. For instance, if you need to add elements in ascending order, start from the smallest value and proceed upwards. Think about what happens if we add or remove the maximum or minimum element. Related Problems:  <a href="https://codeforces.com/contest/1998/problem/E2">1998E - Eliminating Balls With Merging</a>,  <a href="https://codeforces.com/contest/1988/problem/E">1988E - Range Minimum Sum</a></li>
+</ul>
+</section><section>
+<h3>Fixing Variables</h3>
+<ul>
+<li>
+<p><strong>Minimizing Two or More Variables</strong>: When you need to minimize the sum of two variables (let's call them A and B), it can get tricky if adjusting one affects the other (that is, if you try to lower A, B will go up, and vice versa). A practical approach is to choose a fixed value for one of the variables. For example, you could decide on a maximum limit for B. Once you've set that, you can focus all your efforts on reducing A. This approach is somewhat analogous to binary search (where you perform binary search on B and check if there exists a valid solution). However, unlike binary search, B may not exhibit monotonicity, so you need to enumerate all possible values of B. Related Problems: <a href="https://codeforces.com/contest/1969/problem/E">1969D - Shop Game</a>, <a href="https://codeforces.com/contest/2035/problem/E">2035E - Monster</a>.</p>
+</li>
+<li>
+<p><strong>The median of a set with size $n$.</strong>  Try to use binary search on the potential median value $M$. During the binary search, count the number of elements in the set that are less than $M$. Compare this count to $n/2$ to determine whether $M$ is too high or too low. Adjust the value of  $M$ accordingly until we find the correct median. Related Problems: <a href="https://codeforces.com/contest/2008/problem/H">2008H - Sakurako's Test</a>.</p>
+</li>
+<li>
+<p><strong>Enumerate all possible values of a specific variable.</strong> While it might seem daunting, as an $O(n)$ enumeration can increase the time complexity significantly (for example, from $O(n)$ to $O(n^2)$), fixing a variable can help you identify key mathematical properties of the problem. Once these properties are understood, you can look for ways to optimize the process. Potential optimizations could include using data structures to reduce the complexity from $O(n)$ to $O(\log n)$, or recognizing that the number of values to enumerate might be as low as $O(log n)$ or $O(\sqrt n)$. Related Problems: <a href="https://codeforces.com/contest/1996/problem/D">1996D - Fun</a>, <a href="https://codeforces.com/contest/1984/problem/F">1984F - Reconstruction</a>. Actually, problems with smaller input sizes (they are usually counting problems), like $n=400$ where a solution with $O(n^3)$ time complexity is acceptable, can often be more challenging than those with larger inputs, such as $n=10^6$. The small constraint on input size usually indicates that more variables might need to be enumerated or considered in the solution. In these cases, it's often beneficial to start with a brute-force approach to fully understand the problem. As you explore this approach, you'll identify which enumerations are unnecessary, allowing you to optimize the solution by eliminating or reducing those steps. This methodical refinement can lead to a more efficient algorithm tailored to the specific constraints of the problem. Related Problems: <a href="https://codeforces.com/problemset/problem/1992/G">1992G - Ultra-Meow</a>, <a href="https://codeforces.com/contest/1988/problem/F">1998F - Heartbeat</a>.</p>
+</li>
+<li>
+<p><strong>Meet in the middle can reduce the enumeration complexity.</strong> Instead of enumerating all possible combinations of (a, b, c, d), you can split the problem into two parts: enumerate all possible pairs (a, b) and all possible pairs (c, d) separately. Then, combine the results by matching these pairs. Related Problems: <a href="https://codeforces.com/contest/1986/problem/G2">1986G - Permutation Problem</a>, <a href="https://codeforces.com/contest/1988/problem/F">1998F - Heartbeat</a>.</p>
+</li>
+</ul>
+</section><section>
+<h3>The Solution Space can be Small</h3>
+<p>Often, the solution size is smaller than expected. Look for patterns where something grows exponentially, as this can reveal key insights. Here are two common patterns:</p>
+<ul>
+<li><strong>Triangle Inequality and Fibonacci Growth</strong>: In some problems, the solution might relate to sequences that grow according to the Fibonacci sequence. This pattern often appears in problems involving the triangle inequality, where the sum of the lengths of two sides of a triangle must be greater than the length of the third side. Related Problems:  <a href="https://codeforces.com/problemset/problem/1991/F">1991F - Triangle Formation</a>.</li>
+<li><strong>Comparison of Maximum and Sum</strong>: Another pattern is when comparing the maximum element of a sequence to the sum of the sequence. In such cases, you may find that the sequence doubles with each additional element, leading to exponential growth. Related Problems: <a href="https://codeforces.com/problemset/problem/1990/F">1990F - Polygonal Segments</a></li>
+</ul>
+</section><section>
+<h3>Focus on Special Properties of the Answer</h3>
+<p>When dealing with a problem where you want to maximize a function <code>F(x)-&gt;y</code>, and <code>x</code> can take many possible values (say, <code>O(2^n)</code>), it's useful to consider the properties of <code>y</code>. Often, the possible values of <code>y</code> might be limited (say, <code>O(n)</code>), or there might be special properties of <code>y</code> that can be exploited. Here’s some approaches to address such problems:</p>
+<ul>
+<li>
+<p><strong>Enumerate Possible Values of <code>y</code> and check the feasibility</strong>: If <code>y</code> has a limited number of possible values, you can enumerate these values directly. Next you need to determine if each value can actually be achieved by some <code>x</code>. Related Problems: <a href="https://codeforces.com/problemset/problem/1977/D">1997D - XORificator</a></p>
+</li>
+<li>
+<p><strong>Fix Good Properties of <code>y</code></strong>: Sometimes, you can identify certain properties or constraints on <code>y</code> that allow you to efficiently find the best <code>x</code> that produces this <code>y</code>. Related Problems: <a href="https://codeforces.com/contest/1996/problem/G">1996G - Penacony</a>.</p>
+</li>
+<li>
+<p><strong>Special Elements in the <code>y</code></strong>: The presence of special elements in the solution (such as the maximum or minimum element) might lead to a smaller number of possible values for <code>y</code>. Identifying and focusing on these special elements can reduce the complexity of the problem. Related Problems: <a href="https://codeforces.com/contest/1973/problem/D">1973D - Cat, Fox and Maximum Array Split</a>.</p>
+</li>
+<li>
+<p><strong>Reduce <code>x</code> to a normalized representation</strong>. Simplify <code>x</code> to its most basic form, which often reveals that there are only a few distinct representations. For example, consider the combinations <code>0+3</code>, <code>1+2</code>, <code>2+1</code>, and <code>3+0</code>. By normalizing these combinations, such as by setting a condition that the first term in the addition must be zero, you can reduce them all to the same simplified form, <code>0+3</code>. This normalization helps in identifying the core pattern or essence of <code>x</code> and can make it possible to enumerate all possible basic forms and count how many <code>x</code> belongs to each basic form. Related Problems:  <a href="https://codeforces.com/contest/1997/problem/F">1997F - Chips on a Line</a>.</p>
+</li>
+</ul>
+<p>There is no generic way to find out the "magic" behind the problems, but it's helpful to visualize the solution by crafting simple examples and understanding the potential outcomes. It is impossible to give an exhaustive list of problems, and here are some examples of the properties of <code>y</code>.</p>
+<ul>
+<li>Look like a bracket sequence. <a href="https://codeforces.com/problemset/problem/1987/F2">1987F - Interesting Problem</a></li>
+<li>There are only <code>n+1</code> possible values for <code>y</code>: <a href="https://codeforces.com/contest/1993/problem/E">1993E - Xor-Grid Problem</a></li>
+</ul>
+</section><section>
+<h3>Knowledge about common models</h3>
+<ul>
+<li>Max flow / min cut problems. <a href="https://codeforces.com/blog/entry/101354">Tutorial by AlexLuchianov</a>.
+<ul>
+<li>The project selection problem. There are some projects and some machines. Each project has an income and each machine has a cost. Each project requires some of the machines. Find a set of projects to complete and a set of machines to buy to maximize income. The key to modelling the problem is to think that we get paid in advance for the projects, and that we have to give the money back if we don't manage to complete them. This model makes it easier to think because we can only lose money. Related Problems: <a href="https://codeforces.com/contest/2026/problem/E">2026E - Best Subsequence</a>, <a href="https://codeforces.com/contest/1082/problem/G">1082G - Petya and Graph</a>, <a href="https://codeforces.com/problemset/problem/1146/G">1146G - Zoning Restrictions</a>.</li>
+<li>König-Egeváry theorem: In bipartite graphs, the maximum matching problem is equivalent to the minimum vertex cover problem.</li>
+</ul>
+</li>
+<li>Sprague–Grundy theorem (SG value) in game theory. Related Problems: <a href="https://codeforces.com/contest/2004/problem/E">2004E - Not a Nim Problem</a>.</li>
+<li>Some facts in number theory:
+<ul>
+<li>A number has at most $O(\sqrt n)$ factors. A more strict bound is $n^{O(1/ \log \log n)}$.</li>
+<li><a href="https://en.wikipedia.org/wiki/Prime_gap">Prime Gap</a> :The average gap between consecutive prime numbers among the first is $O(\log n)$. Related Problems: <a href="https://codeforces.com/problemset/problem/2002/F2">2002F - Court Blue</a>, <a href="https://codeforces.com/problemset/problem/2038/K">2038K - Grid Walk</a></li>
+<li>The number of factors of all integers between 2 and N is $O(n \log n)$.</li>
+</ul>
+</li>
+<li>2SAT. Related problems: <a href="https://codeforces.com/problemset/problem/1971/H">1971 - H. ±1</a></li>
+<li>Burnside's lemma. <a href="https://codeforces.com/blog/entry/102668">Tutorial by Everule</a>. Related problems: <a href="https://codeforces.com/contest/2040/problem/F">2040F - Number of Cubes</a></li>
+</ul>
+</section><section>
+<h2>Conclusion</h2>
+<p>Achieving the Master title on Codeforces was a significant milestone for me. I hope this blog post, with its details on my setup and the techniques I've found helpful, provides valuable insights and support for your competitive programming journey.</p>
+
+                </section>
+                <footer>
+                    <hr>
+                    <p style="font-size: 1.4rem">Published Date: 2025-08-27 20:58:02 +0800 <br/> Powered by <a href="https://css.winterveil.net/">MAGICK.CSS</a> and <a href="https://cobalt-org.github.io/">Cobalt</a></p>
+                </footer>
+            </main>
+        </div>
+        <script src="/js/script.js"></script>
+    </body>
+</html>
