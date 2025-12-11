@@ -8,20 +8,19 @@
         <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.2/css/all.min.css">
         <link rel="icon" href="/favicon.ico" type="image/x-icon">
         <script>
-            // Immediately set the theme based on user's preference stored in localStorage
-            (function() {
-                const savedTheme = localStorage.getItem('theme');
-                if (savedTheme) {
-                    document.documentElement.setAttribute('data-theme', savedTheme);
-                    document.documentElement.style.colorScheme = savedTheme;
-                } else {
-                    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    const defaultTheme = prefersDarkScheme ? 'dark' : 'light';
-                    document.documentElement.setAttribute('data-theme', defaultTheme);
-                    document.documentElement.style.colorScheme = defaultTheme;
-                }
-            })();
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
         </script>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </head>
     <body>
         <div>
@@ -32,7 +31,6 @@
                             <li><a href="/">Posts</a></li>
                             <li><a href="/friends.html">Friends</a></li>
                             <li><a href="/about.html">About</a></li>
-                            <li id="theme-toggle"><a><span class="fas fa-moon"></span></a></li>
                         </ul>
                     </nav>
                     <h1>错觉艺术：《超阈限空间》游玩感想</h1>
@@ -82,6 +80,5 @@
                 </footer>
             </main>
         </div>
-        <script src="/js/script.js"></script>
     </body>
 </html>

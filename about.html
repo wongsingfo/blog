@@ -8,20 +8,19 @@
         <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.2/css/all.min.css">
         <link rel="icon" href="/favicon.ico" type="image/x-icon">
         <script>
-            // Immediately set the theme based on user's preference stored in localStorage
-            (function() {
-                const savedTheme = localStorage.getItem('theme');
-                if (savedTheme) {
-                    document.documentElement.setAttribute('data-theme', savedTheme);
-                    document.documentElement.style.colorScheme = savedTheme;
-                } else {
-                    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    const defaultTheme = prefersDarkScheme ? 'dark' : 'light';
-                    document.documentElement.setAttribute('data-theme', defaultTheme);
-                    document.documentElement.style.colorScheme = defaultTheme;
-                }
-            })();
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
         </script>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </head>
     <body>
         <div>
@@ -32,7 +31,6 @@
                             <li><a href="/">Posts</a></li>
                             <li><a href="/friends.html">Friends</a></li>
                             <li><a href="/about.html">About</a></li>
-                            <li id="theme-toggle"><a><span class="fas fa-moon"></span></a></li>
                         </ul>
                     </nav>
                     <h1>Chengke Wang</h1>
@@ -40,7 +38,7 @@
                 <section>
                     </section><section>
 <h2>About Me</h2>
-<p>I am a fourth-year Ph.D. student in the School of Computer Science at Peking University. I am affiliated with Center for Energy-efficient Computing and Applications (CECA), advised by <a href="https://soar.group/chenren/">Prof. Chenren Xu</a>.</p>
+<p>I am a fifth-year Ph.D. student in the School of Computer Science at Peking University. I am affiliated with Center for Energy-efficient Computing and Applications (CECA), advised by <a href="https://soar.group/chenren/">Prof. Chenren Xu</a>.</p>
 </section><section>
 <h2>Research Interests</h2>
 <ul>
@@ -52,33 +50,16 @@
 <h2>Publications</h2>
 <ul>
 <li>
-<p><em>SMUFF: Towards Line Rate Wi-Fi Direct Transport with Orchestrated On-device Buffer Management.</em>
-<strong>Chengke Wang</strong>, Hao Wang, Yuhan Zhou, Yunzhe Ni, Feng Qian, Chenren Xu.
+<p><strong>SMUFF: Towards Line Rate Wi-Fi Direct Transport with Orchestrated On-device Buffer Management.</strong>
+Chengke Wang, Hao Wang, Yuhan Zhou, Yunzhe Ni, Feng Qian, Chenren Xu.
 USENIX Symposium on Networked Systems Design and Implementation, Santa Clara, CA, USA, April 2024.</p>
 </li>
 <li>
-<p><em>Experience: A Three-Year Retrospective of Large-scale Multipath Transport Deployment for Mobile Applications.</em>
-<strong>Chengke Wang</strong>, Hao Wang, Feng Qian, Kai Zheng, Chenglu Wang, Fangzhu Mao, Xingmin Guo, Chenren Xu.
+<p><strong>Experience: A Three-Year Retrospective of Large-scale Multipath Transport Deployment for Mobile Applications.</strong>
+Chengke Wang, Hao Wang, Feng Qian, Kai Zheng, Chenglu Wang, Fangzhu Mao, Xingmin Guo, Chenren Xu.
 ACM International Conference on Mobile Computing and Networking, Madrid, Spain, October 2023.</p>
 </li>
 </ul>
-<!-- ## Honors and Awards -->
-<!--  -->
-<!-- - WIP -->
-<!--  -->
-<!-- ## Industrial Experience -->
-<!--  -->
-<!-- - Alibaba DAMO Academy (XG Laboratory) -->
-<!--   Research Intern. Mar 2023-June 2023 -->
-<!--   Mentors: Dr. Junchen Guo and Dr. Pengyu Zhang -->
-<!--  -->
-<!-- - Tencent IEG (START Cloud Game Team) -->
-<!--   Research Intern. July 2022-Dec 2022 -->
-<!--   Mentor: Mr. Honghao Liu -->
-<!--  -->
-<!-- - Huawei Consumer BG (Software Engineering Architecture Design Dept) -->
-<!--   Research Intern. Oct 2021-June 2022 -->
-<!--   Mentor: Dr. Hao Wang -->
 
                 </section>
                 <footer>
@@ -87,6 +68,5 @@ ACM International Conference on Mobile Computing and Networking, Madrid, Spain, 
                 </footer>
             </main>
         </div>
-        <script src="/js/script.js"></script>
     </body>
 </html>

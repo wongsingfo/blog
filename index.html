@@ -8,20 +8,19 @@
         <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.2/css/all.min.css">
         <link rel="icon" href="/favicon.ico" type="image/x-icon">
         <script>
-            // Immediately set the theme based on user's preference stored in localStorage
-            (function() {
-                const savedTheme = localStorage.getItem('theme');
-                if (savedTheme) {
-                    document.documentElement.setAttribute('data-theme', savedTheme);
-                    document.documentElement.style.colorScheme = savedTheme;
-                } else {
-                    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    const defaultTheme = prefersDarkScheme ? 'dark' : 'light';
-                    document.documentElement.setAttribute('data-theme', defaultTheme);
-                    document.documentElement.style.colorScheme = defaultTheme;
-                }
-            })();
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
         </script>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </head>
     <body>
         <div>
@@ -32,22 +31,67 @@
                             <li><a href="/">Posts</a></li>
                             <li><a href="/friends.html">Friends</a></li>
                             <li><a href="/about.html">About</a></li>
-                            <li id="theme-toggle"><a><span class="fas fa-moon"></span></a></li>
                         </ul>
                     </nav>
                     <h1>Index</h1>
                 </header>
                 <section>
-                    </section><section>
-<h3><a href="posts/cfmaster.html">Experiences on Reaching Master on Codeforeces</a></h3>
-</section><section>
-<h3><a href="posts/webctf202407.html">CTF Web 练习题：Flag 即服务</a></h3>
-</section><section>
-<h3><a href="posts/geekgame3.html">Write-up for GeekGame 3rd</a></h3>
-</section><section>
-<h3><a href="posts/superliminal.html">错觉艺术：《超阈限空间》游玩感想</a></h3>
-</section><section>
-<h3><a href="posts/undelete.html">数字复活：挽救被格式化硬盘的照片</a></h3>
+                    <div class="post-list">
+<div class="post-entry">
+<div class="post-date">Dec 11</div>
+<div class="post-content">
+<a href="posts/dividend-index.html" class="post-title">中证红利低波动100指数的定投分析</a>
+<div class="post-preview">
+<p>关于投机和投资，只有那些亲自去研究的人才能获利，没人会无缘无故地塞给你一堆钱。...</p>
+</div>
+</div>
+</div>
+<div class="post-entry">
+<div class="post-date">Aug 27</div>
+<div class="post-content">
+<a href="posts/cfmaster.html" class="post-title">Experiences on Reaching Master on Codeforeces</a>
+<div class="post-preview">
+<p>After 5 months of participation in the contests, I'm pleased to have achieved...</p>
+</div>
+</div>
+</div>
+<div class="post-entry">
+<div class="post-date">Jul 28</div>
+<div class="post-content">
+<a href="posts/webctf202407.html" class="post-title">CTF Web 练习题：Flag 即服务</a>
+<div class="post-preview">
+<p>无聊做做 CTF 题目。</p>
+</div>
+</div>
+</div>
+<div class="post-entry">
+<div class="post-date">Oct 19</div>
+<div class="post-content">
+<a href="posts/geekgame3.html" class="post-title">Write-up for GeekGame 3rd</a>
+<div class="post-preview">
+<p>你说的对，但是《PKU GeekGame》是由北京大学计算中心自主研发的一道全新开放世界 CTF 比赛……...</p>
+</div>
+</div>
+</div>
+<div class="post-entry">
+<div class="post-date">Sep 24</div>
+<div class="post-content">
+<a href="posts/superliminal.html" class="post-title">错觉艺术：《超阈限空间》游玩感想</a>
+<div class="post-preview">
+<p>就是因为我们太在乎失败，才会拒绝用其他的角度来看待事物。...</p>
+</div>
+</div>
+</div>
+<div class="post-entry">
+<div class="post-date">Jun 11</div>
+<div class="post-content">
+<a href="posts/undelete.html" class="post-title">数字复活：挽救被格式化硬盘的照片</a>
+<div class="post-preview">
+<p>一张梗图：如遇火灾，请提交代码后逃离建筑</p>
+</div>
+</div>
+</div>
+</div>
 
                 </section>
                 <footer>
@@ -56,6 +100,5 @@
                 </footer>
             </main>
         </div>
-        <script src="/js/script.js"></script>
     </body>
 </html>

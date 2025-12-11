@@ -8,20 +8,19 @@
         <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.2/css/all.min.css">
         <link rel="icon" href="/favicon.ico" type="image/x-icon">
         <script>
-            // Immediately set the theme based on user's preference stored in localStorage
-            (function() {
-                const savedTheme = localStorage.getItem('theme');
-                if (savedTheme) {
-                    document.documentElement.setAttribute('data-theme', savedTheme);
-                    document.documentElement.style.colorScheme = savedTheme;
-                } else {
-                    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    const defaultTheme = prefersDarkScheme ? 'dark' : 'light';
-                    document.documentElement.setAttribute('data-theme', defaultTheme);
-                    document.documentElement.style.colorScheme = defaultTheme;
-                }
-            })();
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
         </script>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </head>
     <body>
         <div>
@@ -32,13 +31,13 @@
                             <li><a href="/">Posts</a></li>
                             <li><a href="/friends.html">Friends</a></li>
                             <li><a href="/about.html">About</a></li>
-                            <li id="theme-toggle"><a><span class="fas fa-moon"></span></a></li>
                         </ul>
                     </nav>
                     <h1>CTF Web 练习题：Flag 即服务</h1>
                 </header>
                 <section>
-                    </section><section>
+                    <p>无聊做做 CTF 题目。</p>
+</section><section>
 <h2>题目描述</h2>
 <p>题目来源：geekgame-1st</p>
 <p>故事背景：网站提供了“JSON-as-a-Service”，可以像 jq 工具一样转换 JSON 格式。一个例子是 <code>http://example.com/api/demo.json?in_path=1/name&amp;out_path=response/data</code>。假设 <code>demo.json</code> 的内容是：</p>
@@ -403,6 +402,5 @@ curl --cookie cookie.txt --get --path-as-is -v http://localhost:5000/api/demo.js
                 </footer>
             </main>
         </div>
-        <script src="/js/script.js"></script>
     </body>
 </html>
