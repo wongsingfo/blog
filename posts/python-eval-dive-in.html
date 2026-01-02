@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>深入理解 Python 求值执行</title>
+        <link rel="stylesheet" href="/css/normalize.min.css">
+        <link rel="stylesheet" href="/css/magick.css">
+        <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+        <link rel="icon" href="/favicon.ico" type="image/x-icon">
+        <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    </head>
+    <body>
+        <div>
+            <main>
+                <header>
+                    <nav>
+                        <ul>
+                            <li><a href="/">Posts</a></li>
+                            <li><a href="/friends.html">Friends</a></li>
+                            <li><a href="/about.html">About</a></li>
+                        </ul>
+                    </nav>
+                    <h1>深入理解 Python 求值执行</h1>
+                </header>
+                <section>
+                    <p>你是否遇到过这种情况，包含 Python 语言的应用崩溃了，但面对调用栈日志无处下手？</p>
+<p>现代机器学习项目往往需要采用多语言方案，以同时确保提供高性能和用户友好体验，比如：</p>
+<ul>
+<li>NVIDIA Triton Inference Server 提供 <a href="https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/python_backend/README.html">Python Backend</a>，允许用户无需编写 C++ 代码即可通过 Python 脚本部署模型，极大地降低了业务人员的门槛。</li>
+<li>PyTorch Custom C++ Extensions：为了加速特定的算子，编写 C++/CUDA 代码并通过 pybind11 绑定到 Python。</li>
+</ul>
+<p>在这种混合架构下，一旦程序崩溃，GDB 打印出的堆栈通常充满了 <code>PyEval_*</code> 等晦涩的符号。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span></span><code class="language-">#0  0x00007ffff7e0b12c in trigger_crash () at libcrash.c:8
+#1  0x00007ffff7de8ac6 in ?? () from /usr/lib/libffi.so.8
+#2  0x00007ffff7de576b in ?? () from /usr/lib/libffi.so.8
+#3  0x00007ffff7de806e in ffi_call () from /usr/lib/libffi.so.8
+#4  0x00007ffff7e2f1bd in ?? () from /usr/lib/python3.13/lib-dynload/_ctypes.cpython-313-x86_64-linux-gnu.so
+#5  0x00007ffff7e2cec3 in ?? () from /usr/lib/python3.13/lib-dynload/_ctypes.cpython-313-x86_64-linux-gnu.so
+#6  0x00007ffff79620cb in _PyObject_MakeTpCall () from /usr/lib/libpython3.13.so.1.0
+#7  0x00007ffff797697a in _PyEval_EvalFrameDefault () from /usr/lib/libpython3.13.so.1.0
+#8  0x00007ffff7a4e2c9 in PyEval_EvalCode () from /usr/lib/libpython3.13.so.1.0
+#9  0x00007ffff7a8c88c in ?? () from /usr/lib/libpython3.13.so.1.0
+#10 0x00007ffff7a8985d in ?? () from /usr/lib/libpython3.13.so.1.0
+#11 0x00007ffff7a86f58 in ?? () from /usr/lib/libpython3.13.so.1.0
+#12 0x00007ffff7a86212 in ?? () from /usr/lib/libpython3.13.so.1.0
+#13 0x00007ffff7a85b83 in ?? () from /usr/lib/libpython3.13.so.1.0
+#14 0x00007ffff7a83e51 in Py_RunMain () from /usr/lib/libpython3.13.so.1.0
+#15 0x00007ffff7a3bbeb in Py_BytesMain () from /usr/lib/libpython3.13.so.1.0
+#16 0x00007ffff7427635 in ?? () from /usr/lib/libc.so.6
+#17 0x00007ffff74276e9 in __libc_start_main () from /usr/lib/libc.so.6
+#18 0x0000555555555045 in _start ()
+</code></pre>
+<p>你看到的是 CPython<span class="sidenote-anchor"></span><span class="sidenote">CPython 是 Python 编程语言的官方、标准、也是最广泛使用的解释器实现。当我们平时说“我安装了 Python”，99% 的情况下，我们指的就是 CPython。</span> 虚拟机的执行路径，而不是编写的 Python 业务代码。针对这种情况，本文将深入 CPython，剖析 Python 代码是如何被求值的，为调试这类跨语言工具提供基础知识。</p>
+<p>看完本文，你能回答以下问题：</p>
+<ul>
+<li>为什么 GDB 默认无法直接看到 Python 调用栈？</li>
+<li>如何在只有 Core Dump 的情况下恢复 Python 业务逻辑的堆栈？</li>
+<li>如何判断一个崩溃的 Python 进程是否正持有 GIL？</li>
+<li>py-spy 与 PyStack 这类工具在实现“零侵入”观测时，核心差异在哪里？</li>
+</ul>
+</section><section>
+<h2>字节码与虚拟机</h2>
+<p>在深入之前，首先需要理解 Python 是如何被“翻译/执行”的。</p>
+<p>Python 并非纯粹的解释型语言。实际上，CPython 拥有一个严格的编译阶段。当 Python 程序执行时，源代码首先被编译成一种名为<strong>字节码</strong>（Bytecode）的中间表示（Intermediate Representation, IR）。这种字节码是特定于 <strong>Python 虚拟机</strong>（Python Virtual Machine, PVM）的低级指令集。虚拟机加载字节码对象，逐条执行指令，操纵堆栈和内存对象 。</p>
+</section><section>
+<h3>PyCodeObject 与其序列化</h3>
+<p>Python 的编译单元是代码对象（Code Object），在 C 语言层面，它对应 <code>PyCodeObject</code> 结构体；在 Python 层面，它是 <code>types.CodeType</code> 的实例。 代码对象是不可变（immutable）的，它包含了虚拟机执行一段代码所需的所有静态信息。下面是 PyCodeObject 定义的代码片断<span class="sidenote-anchor"></span><span class="sidenote">本文的代码片段旨在展示核心原理，并非完整的类结构或逻辑链路。</span>：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span></span><code class="language-c">struct PyCodeObject _PyCode_DEF(1);
+
+#define _PyCode_DEF(SIZE) {                                                    \
+    /* The hottest fields (in the eval loop) are grouped here at the top. */   \
+    PyObject *co_consts;           /* list (constants used) */                 \
+    PyObject *co_names;            /* list of strings (names used) */          \
+    PyObject *co_exceptiontable;   /* Byte string encoding exception handling  \
+                                      table */                                 \
+    PyObject *co_filename;        /* unicode (where it was loaded from) */     \
+    PyObject *co_name;            /* unicode (name, for reference) */          \
+    PyObject *co_qualname;        /* unicode (qualname, for reference) */      \
+    _PyCoCached *_co_cached;      /* cached co_* attributes */                 \
+    char co_code_adaptive[(SIZE)];                                             \
+}
+
+typedef struct {
+    PyObject *_co_code;      /* 字节码指令流 */
+    PyObject *_co_varnames;  /* 局部变量 */
+    PyObject *_co_cellvars;
+    PyObject *_co_freevars;
+} _PyCoCached;
+</code></pre>
+<p>编译好的代码对象会被序列化（Marshal）到 <code>.pyc</code> 文件中。与 pickle 不同，marshal 格式不保证跨版本兼容，它专门用于 Python 内部的对象持久化。下面这个完整的实验代码展现了 <code>.pyc</code> 的格式：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span>32</span><span>33</span><span>34</span><span>35</span><span>36</span><span>37</span><span>38</span><span>39</span><span>40</span><span>41</span><span>42</span><span>43</span><span>44</span><span>45</span><span>46</span><span>47</span><span>48</span></span><code class="language-python">import marshal
+import py_compile
+import struct
+import time
+import dis
+
+source_code = &quot;&quot;&quot;
+global_var = 114514
+def foo(x):
+    local_var = 42
+    return x + local_var + global_var
+&quot;&quot;&quot;
+
+filename = &quot;test_script.py&quot;
+with open(filename, &quot;w&quot;) as f:
+    f.write(source_code)
+
+# cfile 是编译后的输出路径，例如 __pycache__/test_script.cpython-310.pyc
+# 也可以使用 co_module = compile(src, &quot;&lt;string&gt;&quot;, &quot;exec&quot;) 编译为不包含头结构的 Code Object
+cfile = py_compile.compile(filename)
+
+# 解析 .pyc 文件结构 (Python 3.7+):
+# [4 bytes Magic Number] [4 bytes Bit Field] [4 bytes Timestamp] [4 bytes Size] [Marshalled Code Object...]
+with open(cfile, &quot;rb&quot;) as f:
+    magic = f.read(4)
+    bit_field = f.read(4)
+    timestamp = f.read(4)
+    file_size = f.read(4)
+
+    print(f&quot;Magic Bytes: {magic.hex()}&quot;)
+    mod_time = time.ctime(struct.unpack(&#39;&lt;I&#39;, timestamp)[0])
+    print(f&quot;Timestamp: {mod_time}&quot;)
+
+    # 反序列化代码对象 (Unmarshalling)
+    # 这里的 load 对应 C 语言层面的 PyMarshal_ReadObjectFromString
+    code_obj = marshal.load(f)
+
+    print(f&quot;co_name (函数/模块名): {code_obj.co_name}&quot;)
+    print(f&quot;co_consts (常量池): {code_obj.co_consts}&quot;)
+
+    func_code = None
+    for const in code_obj.co_consts:
+        if hasattr(const, &#39;co_name&#39;):
+            print(f&quot;\n[Dive into &#39;{const.co_name}&#39;]:&quot;)
+            func_code = const
+            print(f&quot;co_varnames (局部变量): {func_code.co_varnames}&quot;)
+            print(f&quot;co_code (字节码指令流): {func_code.co_code.hex()}&quot;)
+            dis.dis(func_code)
+</code></pre>
+<p>代码运行后输出如下：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span></span><code class="language-">Magic Bytes: f30d0d0a
+Timestamp: Thu Jan  1 22:20:54 2026
+co_name (函数/模块名): &lt;module&gt;
+co_consts (常量池): (114514, &lt;code object foo at 0x7f7ff69e70f0, file &quot;test_script.py&quot;, line 3&gt;, None)
+
+[Dive into &#39;foo&#39;]:
+co_varnames (局部变量): (&#39;x&#39;, &#39;local_var&#39;)
+co_code (字节码指令流): 950053016e0158012d0000005b0000000000000000002d0000002400
+  3           RESUME                   0
+
+  4           LOAD_CONST               1 (42)
+              STORE_FAST               1 (local_var)
+
+  5           LOAD_FAST_LOAD_FAST      1 (x, local_var)
+              BINARY_OP                0 (+)
+              LOAD_GLOBAL              0 (global_var)
+              BINARY_OP                0 (+)
+              RETURN_VALUE
+</code></pre>
+<p>通过 <code>types.CodeType</code>，我们可以手动创建一个新的代码对象，替换原函数的 <code>__code__</code> 属性，从而在不改变源码的情况下修改函数行为。下面这个例子把一个加法函数的行为改变为乘法。下面这个例子把一个加法函数的行为改变为乘法。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span></span><code class="language-python">import opcode
+
+def target_func(a, b):
+    return a + b
+
+print(f&quot;Original: {target_func(5, 5)}&quot;)
+
+co = target_func.__code__
+code = bytearray(co.co_code)
+
+# Patching Logic (Python 3.11+)
+# BINARY_OP (opcode 122) uses an arg to define the operation (0=Add, 5=Mul)
+BINARY_OP = opcode.opmap[&#39;BINARY_OP&#39;]
+NB_ADD = 0  # Slot for addition (+)
+NB_MUL = 5  # Slot for multiplication (*)
+
+for i in range(0, len(code), 2):
+    op, arg = code[i], code[i + 1]
+    if op == BINARY_OP and arg == NB_ADD:
+        print(f&quot;Patching BINARY_OP(+) at offset {i} to (*)&quot;)
+        code[i + 1] = NB_MUL
+
+target_func.__code__ = co.replace(co_code=bytes(code))
+
+print(f&quot;Patched:  {target_func(5, 5)}&quot;)
+</code></pre>
+</section><section>
+<h3>虚拟机架构：基于堆栈的计算模型</h3>
+<p>CPython 虚拟机是一个堆栈机器（Stack Machine）。与基于寄存器的虚拟机（如 Lua VM 或 Dalvik）不同，PVM 的指令通常不包含显式的操作数地址，而是隐式地从堆栈顶部获取操作数。</p>
+<p>我曾开发过一个名为 <a href="https://github.com/wongsingfo/lightning-ac">lightning-ac 的栈式虚拟机玩具项目</a>，其核心代码仅有 400 行。该项目的核心设计思路是为了解决在 LeetCode 等算法平台提交代码时的隐私问题。我设计了一套堆栈机器的指令集，在提交时，只需提供一个约 100 行的微型虚拟机解释器以及编译好的字节码指令流，即可在保护核心逻辑不被窥视的同时完成题目交付。项目已完整通过了汉诺塔和快速排序的测试。当然这只是玩具，执行时间是原生 C 程序的 4 到 10 倍；而且我没有实现从 C 程序到指令集的编译器，需要手写 IR 指令，非常需要耐心。</p>
+<p>继续使用上一个小章节的例子，从 <code>dis.dis</code> 的输出可以看到计算过程：</p>
+<table><thead><tr><th style="text-align: left">行号</th><th style="text-align: left">字节码指令</th><th style="text-align: left">操作数</th><th style="text-align: left">栈的变化</th><th style="text-align: left">语义说明</th></tr></thead><tbody>
+<tr><td style="text-align: left"><strong>3</strong></td><td style="text-align: left"><code>RESUME</code></td><td style="text-align: left"><code>0</code></td><td style="text-align: left"><code>[]</code></td><td style="text-align: left">no-op，用于调试、安全检查</td></tr>
+<tr><td style="text-align: left"><strong>4</strong></td><td style="text-align: left"><code>LOAD_CONST</code></td><td style="text-align: left"><code>1 (42)</code></td><td style="text-align: left"><code>[42]</code></td><td style="text-align: left">从常量池 <code>co_consts</code> 加载索引为 1 的对象压入栈顶。</td></tr>
+<tr><td style="text-align: left"></td><td style="text-align: left"><code>STORE_FAST</code></td><td style="text-align: left"><code>1 (local_var)</code></td><td style="text-align: left"><code>[]</code></td><td style="text-align: left">弹出栈顶值，存入局部变量表索引 1 的位置（即 <code>local_var</code>）。</td></tr>
+<tr><td style="text-align: left"><strong>5</strong></td><td style="text-align: left"><code>LOAD_FAST_LOAD_FAST</code></td><td style="text-align: left"><code>1 (x, local_var)</code></td><td style="text-align: left"><code>[x, 42]</code></td><td style="text-align: left"><strong>特化指令</strong>：为了加速，一次性将两个局部变量压入栈中。</td></tr>
+<tr><td style="text-align: left"></td><td style="text-align: left"><code>BINARY_OP</code></td><td style="text-align: left"><code>0 (+)</code></td><td style="text-align: left"><code>[x + 42]</code></td><td style="text-align: left">弹出栈顶两个元素执行加法，将结果压回。</td></tr>
+<tr><td style="text-align: left"></td><td style="text-align: left"><code>LOAD_GLOBAL</code></td><td style="text-align: left"><code>0 (global_var)</code></td><td style="text-align: left"><code>[x + 42, 114514]</code></td><td style="text-align: left">在全局命名空间查找 <code>global_var</code> 并压入栈顶。</td></tr>
+<tr><td style="text-align: left"></td><td style="text-align: left"><code>BINARY_OP</code></td><td style="text-align: left"><code>0 (+)</code></td><td style="text-align: left"><code>[(x + 42) + 114514]</code></td><td style="text-align: left">再次执行加法，结果压回栈顶。</td></tr>
+<tr><td style="text-align: left"></td><td style="text-align: left"><code>RETURN_VALUE</code></td><td style="text-align: left"></td><td style="text-align: left"><code>[]</code></td><td style="text-align: left">弹出栈顶元素作为函数的返回值。</td></tr>
+</tbody></table>
+<p>在<a href="https://docs.python.org/3/library/dis.html">官方文档</a> 可以查询到字节码指令的详细规范，比如特化指令 <code>LOAD_FAST_LOAD_FAST(var_names)</code> 的规范是：Pushes references to <code>co_varnames[var_nums &gt;&gt; 4]</code> and <code>co_varnames[var_nums &amp; 15]</code> onto the stack.</p>
+<p>下面看看源码是如何实现的，<code>Python/bytecodes.c</code> 是新版本中字节码定义的源头。CPython 现在使用一种特殊的 DSL（领域特定语言）来描述字节码，然后自动生成到 <code>generated_cases.c.h</code> （用于 Tier 1，后文会介绍是什么）和 <code>executor_cases.c.h</code> （用于 Tier 2）中。下面是 <code>LOAD_FAST_LOAD_FAST</code> 的实现，这里的 <code>(inputs -- outputs)</code> 是一种描述栈效应（Stack Effect）的 DSL，表达需要从栈中弹出 <code>inputs</code>（可以为空），并压入 <code>outputs</code>。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></span><code class="language-c">inst(LOAD_FAST_LOAD_FAST, ( -- value1, value2)) {
+    uint32_t oparg1 = oparg &gt;&gt; 4;
+    uint32_t oparg2 = oparg &amp; 15;
+    value1 = PyStackRef_DUP(GETLOCAL(oparg1));
+    value2 = PyStackRef_DUP(GETLOCAL(oparg2));
+}
+</code></pre>
+<p>CPython 目前采用分层执行架构，通过两套不同的系统来平衡通用性与高性能。Tier 1 是标准的字节码解释器，其入口位于 <code>_PyEval_EvalFrameDefault</code>（该函数是虚拟机的“心脏”，位于<code>Python/ceval.c</code>）。当某些代码路径被识别为“热点”时，系统会将其转换为微操作（uops） 序列，并进入 Tier 2 层（Python 3.12 引入此特性）。Tier 2 可以进一步选择通过解释器运行，或者由 JIT（即时编译器）编译为机器码。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span></span><code class="language-c">PyObject* _Py_HOT_FUNCTION DONT_SLP_VECTORIZE
+_PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int throwflag)
+{
+    goto start_frame;  // start_frame is a label defined in &quot;generated_cases.c.h&quot;
+#   include &quot;generated_cases.c.h&quot;
+}
+
+#ifdef _Py_TIER2
+#ifdef _Py_JIT
+_PyJitEntryFuncPtr _Py_jit_entry = _Py_LazyJitShim;
+#else
+_PyJitEntryFuncPtr _Py_jit_entry = _PyTier2Interpreter;
+#endif
+#endif
+
+_Py_CODEUNIT *
+_PyTier2Interpreter(
+    _PyExecutorObject *current_executor, _PyInterpreterFrame *frame,
+    _PyStackRef *stack_pointer, PyThreadState *tstate
+) {
+    for (;;) {
+        uopcode = next_uop-&gt;opcode;
+        switch (uopcode) {
+#include &quot;executor_cases.c.h&quot;
+            default:
+            Py_UNREACHABLE();
+         }
+    }
+}
+</code></pre>
+</section><section>
+<h2>求值框架</h2>
+<p>Python 的执行模型建立在一个基于栈的虚拟机之上，而这一模型的核心是“求值框架”（Evaluation Frame），即通常所说的“栈帧”。它是 CPython 在运行时维护函数调用上下文、局部变量、操作数栈以及指令指针的关键数据结构。</p>
+</section><section>
+<h3>栈帧</h3>
+<p>长久以来，Python 的函数调用开销被诟病为性能瓶颈之一，其根源很大程度上在于帧对象的分配机制。近年来，为了提升 Python 的运行速度，核心开发团队推动了名为“香农计划”（Shannon Plan）的一系列优化措施。这导致了帧结构的剧烈演变。在 Python 3.10 及以前，帧是一个完整的 Python 对象（<code>PyFrameObject</code>），分配在堆上，生命周期管理依赖引用计数，开销巨大。而在 Python 3.11 中，引入了 <code>_PyInterpreterFrame</code>，这是一种轻量级的、非 Python 对象的 C 结构体，主要分配在专用的 C 数据栈上，极大地减少了内存分配和垃圾回收的压力。</p>
+<p>现在的架构可以被视为“双层”模型：</p>
+<ul>
+<li>
+<p><code>_PyInterpreterFrame</code> (内部帧)：这是虚拟机实际使用的帧。它是一个轻量级的 C 结构体，通常分配在解释器的“数据栈”（Data Stack）上。它不是 <code>PyObject</code>，没有引用计数头部，创建和销毁几乎没有开销（仅是指针移动）。它包含了执行所需的所有状态，如指令指针、局部变量数组等 。</p>
+</li>
+<li>
+<p><code>PyFrameObject</code> (外部帧)：这仍然是一个 Python 对象，但它变成了一个“懒加载”的代理包装器。只有当用户代码（如通过 <code>sys._getframe()</code>）或调试器显式请求访问帧对象时，解释器才会从堆上分配一个 <code>PyFrameObject</code>，并将其指向对应的 <code>_PyInterpreterFrame</code>。如果代码不进行内省<span class="sidenote-anchor"></span><span class="sidenote">内省(Introspection)是指程序在运行时检查对象、类或函数的类型、属性和能力的一种能力。另一个相关的概念是反射 (Reflection)，反射包含了内省，并在此基础上允许程序在运行时修改自身的行为或结构。</span>，这个对象可能永远不会被创建 。</p>
+</li>
+</ul>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span></span><code class="language-c">typedef struct _PyInterpreterFrame {
+    _PyStackRef f_executable; /* Deferred or strong reference (code object or None) */
+    struct _PyInterpreterFrame *previous;
+    _PyStackRef f_funcobj; /* Deferred or strong reference. Only valid if not on C stack */
+    PyObject *f_globals; /* Borrowed reference. Only valid if not on C stack */
+    PyObject *f_builtins; /* Borrowed reference. Only valid if not on C stack */
+    PyObject *f_locals; /* Strong reference, may be NULL. Only valid if not on C stack */
+    PyFrameObject *frame_obj; /* Strong reference, may be NULL. Only valid if not on C stack */
+    _Py_CODEUNIT *instr_ptr; /* Instruction currently executing (or about to begin) */
+    _PyStackRef *stackpointer;
+} _PyInterpreterFrame;
+</code></pre>
+<p>Python 3.11 引入了基于数据栈的执行模型。当一个 Python 函数调用另一个 Python 函数时，解释器不再递归调用 C 函数 <code>_PyEval_EvalFrame</code>，而是简单地在预分配的“数据栈”上初始化一个新的 <code>_PyInterpreterFrame</code>，更新状态指针，然后通过 goto 跳转到解释器循环的开始处。这种技术实际上实现了类似于尾调用优化（Tail call optimization）的效果，使得大部分 Python 函数调用不再消耗 C 栈空间 。 这种设计带来的连锁反应是巨大的：<code>PyFrame_GetBack()</code> 变得复杂了，因为它可能需要跨越 C 栈边界去寻找上一个帧；而对于调试来说，直接读取内存中的帧链表变得异常困难。</p>
+</section><section>
+<h3>内存布局与栈架构</h3>
+<p>我们需要区分两个“栈”的概念：</p>
+<ul>
+<li>调用栈（Call Stack）：由一系列帧组成的链表，表示函数的嵌套调用关系。在 3.11+ 中，这体现为 <code>_PyInterpreterFrame</code> 结构体通过 <code>previous</code> 指针连接而成的链。</li>
+<li>值栈（Value Stack）：每个帧内部用于计算的临时存储区。例如，计算 <code>a + b</code> 时，<code>a</code> 和 <code>b</code> 会被压入值栈，<code>BINARY_OP</code> 指令弹出它们并将结果压回栈顶 。</li>
+</ul>
+<p>Python 并不使用字典来存储局部变量（尽管 <code>locals()</code> 返回一个字典）。这种机制被称为 Fast Locals。 为了最大限度地提高 CPU 缓存命中率，CPython 将局部变量、闭包变量（Cells/Free Variables）和值栈分配在同一块连续的内存区域中，这块区域被称为 <code>f_localsplus</code>。其内存分布如下：</p>
+<table><thead><tr><th style="text-align: left">索引范围</th><th style="text-align: left">内容对应</th><th style="text-align: left">对应指令</th></tr></thead><tbody>
+<tr><td style="text-align: left"><code>0</code> 到 <code>co_nlocals - 1</code></td><td style="text-align: left">局部变量 (Local Variables)</td><td style="text-align: left"><code>LOAD_FAST</code> / <code>STORE_FAST</code></td></tr>
+<tr><td style="text-align: left"><code>co_nlocals</code> 到 <code>co_nlocals + co_ncellvars + co_nfreevars - 1</code></td><td style="text-align: left">闭包单元 (Cell/Free Vars)</td><td style="text-align: left"><code>LOAD_DEREF</code> / <code>STORE_DEREF</code></td></tr>
+<tr><td style="text-align: left">动态变化（不占固定索引）</td><td style="text-align: left">值栈 (Value Stack)</td><td style="text-align: left"><code>PUSH</code> / <code>POP</code> 操作 (如 <code>BINARY_ADD</code>)</td></tr>
+</tbody></table>
+<p>在 Python 3.12 及以前，<code>locals()</code> 返回的字典是一个快照（Snapshot）。如果需要修改生效（例如调试器想要修改变量），必须调用 C API <code>PyFrame_LocalsToFast</code>，将字典的内容强制同步回数组 。Python 3.13 引入了 PEP 667 (Consistent views of namespaces)，彻底解决了这个问题。现在，<code>frame.f_locals</code> 不再返回一个普通的字典，而是返回一个 <code>PyFrameLocalsProxy</code> 对象。对这个代理对象的任何读取或写入操作，都会直接透传到底层的 <code>f_localsplus</code> 数组。</p>
+</section><section>
+<h3>核心执行循环</h3>
+<p>所有 Python 代码的执行最终都会进入 <code>_PyEval_EvalFrameDefault</code> 函数（或其变体）。这个函数的核心是一个无限 for 循环，循环体内包含一个巨大的 switch 语句（或计算跳转表），根据当前字节码指令（Opcode）进行分发 。</p>
+<p>CPython 提供了一个允许替换默认求值函数的 API：<code>_PyInterpreterState_SetEvalFrameFunc</code>。这允许第三方工具（如 JIT 编译器 Pyjion，或者调试器）拦截帧的执行。当创建一个新帧时，解释器会调用 <code>tstate-&gt;interp-&gt;eval_frame(tstate, frame, throwflag)</code>。默认情况下，这个指针指向 <code>_PyEval_EvalFrameDefault</code>。但是，如果安装了 JIT，它可以指向一个编译成机器码的函数，完全绕过 <code>ceval.c</code> 的字节码解释循环。在 Python 3.11 中，为了优化性能，如果 <code>eval_frame</code> 为 <code>NULL</code>，则直接内联调用默认解释器，避免了函数指针调用的开销。</p>
+<p>我们可以用 <code>sys.settrace</code> 在每行代码或每个函数调用时介入。当 <code>sys.settrace</code> 被激活时，线程状态 <code>tstate-&gt;cframe-&gt;use_tracing</code> 标志被设置。解释器循环会放弃使用优化的特化指令（Specialized Instructions）<span class="sidenote-anchor"></span><span class="sidenote">CPython 引入了 PEP 659 (Specializing Adaptive Interpreter)。以一个简单的字节码指令 <code>BINARY_OP</code> 为例： 在执行之前，虚拟机并不知道操作数是什么，它必须在运行时进行繁琐的检查。如果虚拟机发现这行代码连续多次都在处理两个整数相加，它就会把这条指令原地替换为专门处理整数的特化版本：<code>BINARY_OP_ADD_INT</code>。</span>，转而进入 legacy tracing 路径。这会导致性能显著下降（可能慢 10 倍以上），因为解释器必须在每条指令或每行代码边界暂停，构造帧对象，并调用 Python 回调函数 。</p>
+</section><section>
+<h3>生成器与协程的帧状态管理</h3>
+<p>生成器（Generator）和协程（Coroutine）都<span class="sidenote-anchor"></span><span class="sidenote">从底层实现看，协程的挂起同样依赖 <code>yield</code>。<code>await expr</code> 本质上是调用 <code>expr.__await__()</code>，而该迭代器最终通过 <code>yield</code> 实现非阻塞挂起。</span>通过 <code>yield</code> 关键字实现了函数的暂停和恢复。普通函数的帧在其返回后就可以销毁（在 3.11+ 中是从 C 栈中弹出）。但生成器不同，当它 <code>yield</code> 时，函数并未结束，其局部变量状态必须保留，以便下次恢复。因此，生成器的帧必须分配在堆上，或者其状态必须能够从栈上“逃逸”到堆上。 在 Python 3.11 的实现中，当执行 <code>RETURN_GENERATOR</code> 指令时，解释器会创建一个生成器对象，并将当前的 <code>_PyInterpreterFrame</code> 状态复制或关联到这个生成器对象中。这使得帧的生命周期与生成器对象的生命周期绑定。</p>
+</section><section>
+<h3>GIL 锁与求值计算</h3>
+<p>全局解释器锁（Global Interpreter Lock，简称 GIL）是 CPython 解释器中最为核心且最具争议的同步原语，GIL 并非 Python 语言规范的一部分，而是 CPython 实现层面的产物。尽管其初衷是保护非线程安全的 CPython 内存管理机制，保证只有一个线程能够持有对 Python 对象及其内存管理器的写权限，但在多核处理器普及的今天，GIL 已成为限制 Python 并行计算能力的主要瓶颈。</p>
+<p>GIL 锁的实现演进：</p>
+<ul>
+<li>在很长一段时间里（Python 3.12 之前），GIL 的状态存储在进程级的全局变量 <code>_PyRuntimeState</code> 中（符号表中通常显示为 <code>_PyRuntime</code>）。这意味着整个进程共享这一把锁，无论你开启了多少个线程。</li>
+<li>随着 Python 3.13 的发布以及 PEP 684（Per-Interpreter GIL）的推进，情况发生了本质的变化。为了支持真正的多解释器并行，绝大多数运行时状态——包括 GIL 本身——正在从全局的 <code>_PyRuntime</code> 迁移到每个解释器独有的 <code>PyInterpreterState</code> 结构中。</li>
+<li>Python 3.14 提出 No-GIL，使用了有偏引用计数（Biased Reference Counting）和 Mimalloc（由微软开发的高性能分配器）。Python 3.14 并不会默认开启 No-GIL，它依然是一个构建选项（<code>--disable-gil</code>）。但这一版本标志着 CPython 从“由于 GIL 存在而只能并发”向“真正的并行运行时”的实质性跨越。No-GIL 并非没有代价，即便使用了有偏引用计数，为了维护线程安全，解释器在执行字节码时仍需进行额外的检查（例如延迟引用计数的处理）。目前的基准测试显示，No-GIL 版本在单线程任务上比标准版本慢 10% 左右；同时，你无法直接混用标准 Python 和 No-GIL Python 的扩展模块。 No-GIL 版本拥有独立的 ABI 标签（<code>abi3t</code>，其中 <code>t</code> 代表 threaded），这意味着像 NumPy、PyTorch 这样的 C 扩展库必须专门为 No-GIL 版本进行编译和发布。</li>
+</ul>
+<p>GIL 对求值的影响主要体现在它打断了指令流的连续性。解释器不可能在每条字节码指令之后都检查是否有线程想要抢占 GIL，因为原子操作和锁检查的开销相对于简单的指令（如 <code>LOAD_FAST</code>）来说太大了。因此，CPython 采用了一种名为 <code>eval_breaker</code> 的机制。 在 Python 3.10 之前，系统维护一个 <code>tick</code> 计数器，每执行 N 条指令检查一次，当这个标志位被设置时，解释器会暂停当前的字节码执行，去处理信号或释放 GIL 让其他线程运行。在 Python 3.13 中，为了支持 PEP 703（无 GIL 构建），<code>eval_breaker</code> 被移动到了 <code>PyThreadState</code> 结构中 。</p>
+<p>通过 GDB，我们可以直接观察到这个机制在内存中的真实状态。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span><code class="language-">// 以 Python 3.14 为例
+(gdb) print _PyRuntime.interpreters.main.ceval.gil.locked
+$20 = 1  // 锁状态：1 表示当前 GIL 被占用
+
+(gdb) print _PyRuntime.interpreters.main.ceval.gil.last_holder
+$21 = (PyThreadState *) 0x555555bd1538 &lt;_PyRuntime+331640&gt; // 指向当前持有锁的线程状态对象
+
+(gdb) print _PyRuntime.interpreters.main.ceval.gil.last_holder-&gt;native_thread_id
+$22 = 3130637 // 对应的操作系统原生线程 ID
+</code></pre>
+</section><section>
+<h2>在 GDB 中查看 Python 语义</h2>
+<p>实战中，我们通常需要对业务团队提供的 Core Dump（核心转储）文件<span class="sidenote-anchor"></span><span class="sidenote">Core Dump 是进程在终止瞬间的内存、寄存器和执行状态的二进制快照。对于 C/C++ 等编译型语言，使用 GNU Debugger (GDB) 分析 Core Dump 是标准流程。</span>进行分析，这一章节讨论如何使用 GDB 完成这个任务。</p>
+</section><section>
+<h3>Core Dump 文件的生成与内核机制</h3>
+<p>Core Dump 的生成涉及 Linux 内核的信号处理、内存管理以及文件系统交互。当进程接收到某些特定信号（如 <code>SIGSEGV</code>、<code>SIGQUIT</code>、<code>SIGABRT</code>）且未定义自定义处理函数时，内核会触发默认动作：终止进程并生成 Core Dump。这一过程由内核函数 <code>do_coredump()</code> 协调 。当然，也可以使用 <code>gcore</code> 命令对正在运行的进程生成 Core Dump 文件，这通常在调试死锁的问题中使用。</p>
+<p>Linux 系统出于磁盘空间和性能考虑，通常将 Core 文件大小限制默认为零，我们需要使用下面的指令显式解除此限制。对于由 systemd 管理的守护进程，需要在 Unit 文件中设置 <code>LimitCORE=infinity</code>。</p>
+<pre><span class="line-number"><span>1</span></span><code class="language-shell">$ ulimit -c unlimited
+</code></pre>
+<p>内核参数 <code>kernel.core_pattern</code> 决定了 Core Dump 的命名规则和存储位置。查看当前配置：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span></span><code class="language-shell"># 查看 core 文件生成规则
+$ cat /proc/sys/kernel/core_pattern
+|/usr/lib/systemd/systemd-coredump %P %u %g %s %t %c %h %d %F
+</code></pre>
+<p>此处的管道符 <code>|</code> 具有特殊意义。它表明内核不会直接将 Core 数据写入磁盘，而是将其通过管道流式传输给用户态程序 <code>/usr/lib/systemd/systemd-coredump</code>。 在现代 Linux 发行版中，<code>systemd-coredump</code> 会将 Core 数据压缩存储在 <code>/var/lib/systemd/coredump</code> 中。<code>coredumpctl</code> 是管理这些数据的标准工具。为了使用 GDB 分析，必须将压缩的内部格式导出为标准的 ELF Core 文件：</p>
+<pre><span class="line-number"><span>1</span><span>2</span></span><code class="language-shell">coredumpctl list
+coredumpctl dump &lt;PID&gt; --output core.mycrash
+</code></pre>
+<p>启动 GDB 时，需要同时指定崩溃时的可执行文件和Core 文件。这两个文件必须严格匹配，否则符号表无法正确映射。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span></span><code class="language-shell">(gdb) core core.mycrash
+# 或者在启动时加载
+$ gdb /usr/bin/python3 core.mycrash
+</code></pre>
+<p>直接使用原生的 GDB 只能看到无法直接映射回 Python 源码路径和行号。下一小节讨论如何获取调试信息。</p>
+</section><section>
+<h3>调试信息的获取与 Build-ID 机制</h3>
+<p>当 GDB 加载二进制文件时，它会检查 <code>.note.gnu.build-id</code> 段。这是一个由编译器（GCC/LLVM）在链接阶段计算出的 SHA-1 哈希值（160位），用于唯一标识该二进制构建版本。通过 <code>readelf</code> 或 <code>eu-unstrip</code> 可以查看二进制文件的 Build-ID：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></span><code class="language-shell">$ readelf -n /usr/bin/python | grep -A3 build.id
+Displaying notes found in: .note.gnu.build-id
+  Owner                Data size        Description
+  GNU                  0x00000014       NT_GNU_BUILD_ID (unique build ID bitstring)
+    Build ID: 8c0dc848f5b978c56ebeb07255bb332b4b37ae4e
+$ eu-unstrip -n --core=core.mycrash | head -n 1
+0x55a08b363000+0x5000 8c0dc848f5b978c56ebeb07255bb332b4b37ae4e@0x55a08b3633b0 . - /usr/bin/python3.13
+</code></pre>
+<p>Linux 发行版通常将二进制文件剥离符号后发布（以减小体积），并将调试符号打包在独立的 <code>-debuginfo</code> 或 <code>-dbg</code> 包中。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></span><code class="language-shell"># Fedora
+$ yum install gdb python-debuginfo
+
+# Ubuntu
+$ apt-get install gdb python3.12-dbg
+
+# Centos
+$ yum install yum-utils
+$ debuginfo-install glibc
+$ yum install gdb python-debuginfo
+</code></pre>
+<p>在微服务和容器化环境中，手动安装每个依赖库的 debuginfo 包极其繁琐且不仅可能。<code>debuginfod</code> 协议解决了这个问题。它是一个基于 HTTP 的文件服务器，能够根据 Build-ID 索引并提供调试资源。用 <code>debuginfod-find</code> 可以查询某个 Build-ID 在服务器上是否存在。</p>
+<pre><span class="line-number"><span>1</span></span><code class="language-">$ debuginfod-find debuginfo d5e3b0d8921923f35438adefa9f864745abc5e90
+</code></pre>
+<p>若不需要查询（例如网络隔离环境或查询速度过慢，在生产环境中这很可能出现），可显式关闭：</p>
+<pre><span class="line-number"><span>1</span><span>2</span></span><code class="language-">$ unset DEBUGINFOD_URLS
+(gdb) set debuginfod enabled off
+</code></pre>
+<p>对于深入的解释器开发或调试极其隐晦的 Bug，发行版提供的符号可能不够用（通常编译优化级别为 <code>-O2</code> 或 <code>-O3</code>，导致变量被“优化掉”）。此外，像 Arch Linux 等滚动更新发行版，其上游并不总是提供配套的调试文件。此时需要手动编译 CPython：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span></span><code class="language-shell"># 调试版本会启用 Py_DEBUG 宏，会改变 cpython 的行为
+$ ./configure --with-pydebug CFLAGS=&quot;-O0 -g&quot;
+# 带调试信息的生产版本
+$ ./configure --enable-optimizations CFLAGS=&quot;-g -O3&quot;
+</code></pre>
+</section><section>
+<h3>加载 <code>python-gdb.py</code> 扩展</h3>
+<p>拥有了 Core 文件和调试符号后，我们终于可以开始真正的分析。此时，原生的 GDB 指令（如 <code>bt</code>, <code>info</code> <code>registers</code>）虽然可用，但它们显示的是 C 语言层面的执行流。我们需要借助 CPython 提供的 GDB 扩展脚本来“翻译”这些信息。</p>
+<p><code>python-gdb.py</code>（在某些系统中名为 <code>libpython.py</code>）是 CPython 源码树的一部分(这意味着不保证跨版本兼容)。它利用 GDB 的 Python API，读取 C 结构体（如 <code>PyFrameObject</code>）并将其格式化为 Python 开发者熟悉的形式。</p>
+<p>一旦扩展加载成功，一系列 <code>py-</code> 开头的指令便可使用。比如，可以使用 <code>thread apply all py-bt</code> 打印每个线程在 Python 层面的执行位置。</p>
+<p>为了更深入理解 <code>python-gdb.py</code> 做了什么，我们可以从头写一个简单版本的 <code>pt-bt</code>：</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span>32</span><span>33</span><span>34</span><span>35</span><span>36</span><span>37</span><span>38</span><span>39</span><span>40</span><span>41</span><span>42</span><span>43</span><span>44</span><span>45</span><span>46</span><span>47</span><span>48</span><span>49</span><span>50</span><span>51</span><span>52</span><span>53</span><span>54</span><span>55</span><span>56</span><span>57</span><span>58</span><span>59</span><span>60</span><span>61</span><span>62</span><span>63</span><span>64</span><span>65</span><span>66</span><span>67</span><span>68</span><span>69</span><span>70</span><span>71</span><span>72</span><span>73</span><span>74</span></span><code class="language-python">import gdb
+
+
+def get_code_info(py_frame):
+    try:
+        f_executable = py_frame[&quot;f_executable&quot;]
+
+        if f_executable.type.name != &quot;_PyStackRef&quot;:
+            return None, None, None
+
+        USED_TAGS = 0b11
+        bits = int(f_executable[&quot;bits&quot;]) &amp; ~USED_TAGS
+        if bits == 0:
+            return None, None, None
+
+        PyObject_ptr = gdb.lookup_type(&quot;PyObject&quot;).pointer()
+        py_obj = gdb.Value(bits).cast(PyObject_ptr)
+
+        PyCodeObject_ptr = gdb.lookup_type(&quot;PyCodeObject&quot;).pointer()
+        code_obj = py_obj.cast(PyCodeObject_ptr)
+
+        co_name_ptr = code_obj[&quot;co_name&quot;]
+        co_filename_ptr = code_obj[&quot;co_filename&quot;]
+
+        name = co_name_ptr.format_string().strip(&quot;&#39;&quot;)
+        filename = co_filename_ptr.format_string().strip(&quot;&#39;&quot;)
+
+        try:
+            lineno = int(code_obj[&quot;co_firstlineno&quot;])
+        except:
+            lineno = 0
+
+        return name, filename, lineno
+    except:
+        return None, None, None
+
+
+class MyPyBacktrace(gdb.Command):
+    def __init__(self):
+        super(MyPyBacktrace, self).__init__(
+            &quot;my-py-bt&quot;, gdb.COMMAND_STACK, gdb.COMPLETE_NONE
+        )
+
+    def invoke(self, argument, from_tty):
+        frame = gdb.selected_frame()
+        index = 0
+        print(f&quot;{&#39;INDEX&#39;:&lt;5} {&#39;FUNCTION&#39;:&lt;25} {&#39;FILE:LINE&#39;}&quot;)
+
+        while frame:
+            if frame.name() == &quot;_PyEval_EvalFrameDefault&quot;:
+                try:
+                    py_frame = frame.read_var(&quot;frame&quot;)
+
+                    FRAME_OWNED_BY_INTERPRETER = 3
+                    while py_frame:
+                        owner = int(py_frame[&quot;owner&quot;])
+                        if owner == FRAME_OWNED_BY_INTERPRETER:
+                            break
+
+                        name, filename, lineno = get_code_info(py_frame)
+                        if name:
+                            print(f&quot;{index:&lt;5} {name:&lt;25} {filename}:{lineno}&quot;)
+                            index += 1
+                        try:
+                            py_frame = py_frame[&quot;previous&quot;]
+                        except:
+                            break
+                except:
+                    pass
+            frame = frame.older()
+
+
+MyPyBacktrace()
+print(&quot;Custom command &#39;my-py-bt&#39; loaded.&quot;)
+</code></pre>
+<p>关键点如下：</p>
+<ul>
+<li>寻找 C 与 Python 的边界：脚本首先遍历 GDB 获取的 C 语言调用栈 <code>frame = frame.older()</code>，寻找符号 <code>_PyEval_EvalFrameDefault</code>。一旦定位到这个 C 栈帧，我们就能读取其局部变量 <code>_PyInterpreterFrame *frame</code>。</li>
+<li>解码 _PyStackRef 与指针标记（Pointer Tagging）：<code>f_executable</code> 不是一个裸指针，而是一个 <code>_PyStackRef</code> 联合体(Union)。这是Python 3.13 引入的延迟引用计数 (Deferred Refcounting)优化，避免频繁对引用计数进行更新。虚拟机需要知道栈上的某个值到底是“借来的（Borrowed）”还是“拥有的（Owned）”。CPython 没有使用额外的内存来存这个布尔值，而是使用了指针标记（Pointer Tagging）技术，使用地址的低 2 位来实现标记。解码后我们得到<code>PyCodeObject</code>。</li>
+<li>逆向回溯帧链表：一旦抓住了当前的 Python 帧，脚本便利用 <code>previous</code> 指针向后回溯调用链，直到遇到 <code>FRAME_OWNED_BY_INTERPRETER</code><span class="sidenote-anchor"></span><span class="sidenote">其他的标记包括<code>FRAME_OWNED_BY_THREAD</code>, <code>FRAME_OWNED_BY_GENERATOR</code>, <code>FRAME_OWNED_BY_FRAME_OBJECT</code> (当使用内省时使用)。</span>。当遇到这种类型的帧时，意味着我们已经到达了当前解释器执行流的底部（例如模块层级或由 C 扩展调用的边界），此时应当停止回溯。</li>
+</ul>
+</section><section>
+<h2>观测工具技术原理分析</h2>
+<p>观测工具通常被划分为进程内（In-Process）观测与进程外（Out-of-Process）观测。传统的调试器如 pdb 或性能分析器如 cProfile 均属于前者。它们通过 <code>sys.settrace()</code> 等机制挂钩（Hook）到 Python 解释器的执行循环中，但无可避免地引入了显著的“观察者效应”（Observer Effect）——即观测行为本身改变了目标系统的运行时特征。对“零侵入”观测的需求催生了以 PyStack 和 py-spy 为代表的进程外观测技术。</p>
+<p>跨进程内存访问机制主要有两种：</p>
+<ul>
+<li><code>ptrace</code>：Unix 哲学中用于进程控制和调试的基石。缺点是传统的 <code>ptrace(PTRACE_PEEKDATA,...)</code> 操作一次只能读取一个字（Word，通常为 4 或 8 字节）的数据 ，同时采用的是 “停止-世界”（Stop-the-World）的方法。</li>
+<li><code>process_vm_readv</code>（引入于 Linux 3.2）：允许调用者构建一个包含多个远程地址段的 <code>iovec</code> 向量，内核会在一次系统调用中完成所有这些分散内存段的读取，并将它们填充到观测者进程的连续缓冲区中。该方法不保证原子性。</li>
+</ul>
+<p>目标 Python 进程仅仅是操作系统眼中的一堆内存页，它不会主动告诉外部观测者“这里是解释器状态”。因此，观测工具必须通过以下两种途径之一来定位关键数据结构（如 <code>PyInterpreterState</code> 或 <code>_PyRuntime</code>）：</p>
+<ul>
+<li>依赖二进制文件（ELF）中的符号表（Symbol Table）或调试信息（DWARF）。这是 PyStack 处理 Core Dump 时的主要手段 。</li>
+<li>在符号表被剥离（Stripped）的情况下，扫描内存段（如 BSS 段），通过特征匹配来猜测解释器结构的位置。这是 py-spy 的主要手段。</li>
+</ul>
+</section><section>
+<h3>PyStack: 基于快照分析与 Core Dump 取证的深度内省</h3>
+<p><a href="https://github.com/bloomberg/pystack">PyStack</a> 通过解析二进制文件中的 DWARF 信息实现了混合显示 C 栈和 Python 栈。DWARF 标准定义了 <code>.debug_info</code>（类型信息）和 <code>.debug_frame</code>（栈帧回溯信息）<span class="sidenote-anchor"></span><span class="sidenote">在现代编译器优化（如 <code>-fomit-frame-pointer</code>）下，栈帧不再通过简单的帧指针<code>rbp</code>相连。需要利用 DWARF 中定义的 CFI（Call Frame Information）状态机程序。</span>。在分析运行中的进程时，PyStack 面临数据竞争（Data Race）的风险。PyStack 采取了较为保守的策略：短暂地使用 <code>ptrace</code> 挂起目标线程，确保在通过 <code>process_vm_readv</code> 抓取关键结构时，内存状态是静止的。</p>
+<p>PyStack 的一大杀手锏是能够打印栈帧中的局部变量和参数 。PyStack 内部实现了一套 Python 对象解码器。它读取远程内存中的 <code>PyObject</code> 数据结构，通过 <code>ob_type</code> 字段判断对象类型。</p>
+</section><section>
+<h3>py-spy</h3>
+<p><a href="https://github.com/benfred/py-spy">py-spy</a> 旨在以极低的开销进行持续采样，生成火焰图（Flame Graph）或实时拓扑视图（Top View）。</p>
+<p>针对无符号表的情况，py-spy 引入了一套 <code>.bss</code> 启发式扫描算法，找出潜在的 <code>PyInterpreterState</code> 指针。</p>
+<p>除了记录“正在运行什么函数”，py-spy 还能洞察“线程是否持有 GIL”。这是通过直接读取 <code>_PyRuntime</code> 结构中的 <code>ceval.gil</code> 字段实现的 。</p>
+<p>在 x86_64 架构下，<a href="https://www.benfrederickson.com/profiling-native-python-extensions-with-py-spy/">混合栈展开面临 <code>PyFrameObject</code> 指针的丢失的问题</a>。<code>PyEval_EvalFrameDefault</code> 的参数中包含了当前的 Python 帧对象。这个参数通常传递给 <code>rdi</code> 寄存器。 然而，<code>rdi</code> 是一个“调用者保存”寄存器。在 <code>PyEval_EvalFrameDefault</code> 函数内部执行期间，编译器可能会复用 <code>rdi</code> 寄存器来存储其他临时变量。这意味着当 py-spy 展开到这一层 C 栈帧时，它无法通过简单的寄存器读取来获取当前的 Python 栈帧地址 。py-spy 实现了一系列猜测和扫描帧对象的方法。</p>
+</section><section>
+<h2>总结</h2>
+<p>这篇文章深入探讨了 CPython 虚拟机的内部求值机制，并系统性地介绍了如何处理和分析包含 Python 逻辑的跨语言（Python/C++）应用崩溃问题。</p>
+<p>相信下次生产环境再遇到 Python 相关问题时，你可以从从容容游刃有余。</p>
+</section><section>
+<h2>拓展阅读</h2>
+<ul>
+<li><a href="https://nikhilism.com/post/2018/python-call-stack/">Diving into the Python call stack (PyGotham 2018)</a> 利用 Crashpad 工具<span class="sidenote-anchor"></span><span class="sidenote">由 Google 开发的开源多平台崩溃报告系统（Crash Reporting System）。它最初是作为 Google Chrome 的崩溃收集工具而开发的，旨在取代早期的 Breakpad。</span>为 Python 桌面客户端构建一套可靠的跨进程崩溃报告系统。</li>
+<li><a href="https://docs.python.org/3/howto/gdb_helpers.html">Debugging C API extensions and CPython Internals with GDB</a> 官方 <code>python-gdb.py</code> 文档。</li>
+<li><a href="https://devilinside.me/blogs/unpacking-pyarmor">Unpacking PyArmor: SoderCTF - Rev6</a> PyArmor 混淆脚本逆向工程实战案例。</li>
+<li><a href="https://doar-e.github.io/blog/2014/04/17/deep-dive-into-pythons-vm-story-of-load_const-bug/">Deep dive into Python's VM: Story of LOAD_CONST bug</a></li>
+<li><a href="https://developer.nvidia.com/blog/debugging-mixed-python-and-c-language-stack/">Debugging a Mixed Python and C Language Stack</a> 一个调试 Python 死锁的案例。</li>
+</ul>
+
+                </section>
+                <footer>
+                    <hr>
+                    <p style="font-size: 1.4rem">Published Date: 2026-01-01 17:01:00 +0800 <br/> Powered by <a href="https://css.winterveil.net/">MAGICK.CSS</a> and <a href="https://cobalt-org.github.io/">Cobalt</a></p>
+                </footer>
+            </main>
+        </div>
+    </body>
+</html>
