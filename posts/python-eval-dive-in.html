@@ -485,7 +485,7 @@ print(&quot;Custom command &#39;my-py-bt&#39; loaded.&quot;)
 <li>在符号表被剥离（Stripped）的情况下，扫描内存段（如 BSS 段），通过特征匹配来猜测解释器结构的位置。这是 py-spy 的主要手段。</li>
 </ul>
 </section><section>
-<h3>PyStack: 基于快照分析与 Core Dump 取证的深度内省</h3>
+<h3>PyStack</h3>
 <p><a href="https://github.com/bloomberg/pystack">PyStack</a> 通过解析二进制文件中的 DWARF 信息实现了混合显示 C 栈和 Python 栈。DWARF 标准定义了 <code>.debug_info</code>（类型信息）和 <code>.debug_frame</code>（栈帧回溯信息）<span class="sidenote-anchor"></span><span class="sidenote">在现代编译器优化（如 <code>-fomit-frame-pointer</code>）下，栈帧不再通过简单的帧指针<code>rbp</code>相连。需要利用 DWARF 中定义的 CFI（Call Frame Information）状态机程序。</span>。在分析运行中的进程时，PyStack 面临数据竞争（Data Race）的风险。PyStack 采取了较为保守的策略：短暂地使用 <code>ptrace</code> 挂起目标线程，确保在通过 <code>process_vm_readv</code> 抓取关键结构时，内存状态是静止的。</p>
 <p>PyStack 的一大杀手锏是能够打印栈帧中的局部变量和参数 。PyStack 内部实现了一套 Python 对象解码器。它读取远程内存中的 <code>PyObject</code> 数据结构，通过 <code>ob_type</code> 字段判断对象类型。</p>
 </section><section>
