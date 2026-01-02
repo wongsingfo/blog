@@ -310,7 +310,7 @@ _PyTier2Interpreter(
 <ul>
 <li>在很长一段时间里（Python 3.12 之前），GIL 的状态存储在进程级的全局变量 <code>_PyRuntimeState</code> 中（符号表中通常显示为 <code>_PyRuntime</code>）。这意味着整个进程共享这一把锁，无论你开启了多少个线程。</li>
 <li>随着 Python 3.13 的发布以及 PEP 684（Per-Interpreter GIL）的推进，情况发生了本质的变化。为了支持真正的多解释器并行，绝大多数运行时状态——包括 GIL 本身——正在从全局的 <code>_PyRuntime</code> 迁移到每个解释器独有的 <code>PyInterpreterState</code> 结构中。</li>
-<li>Python 3.14 提出 No-GIL，使用了有偏引用计数（Biased Reference Counting）和 Mimalloc（由微软开发的高性能分配器）。Python 3.14 并不会默认开启 No-GIL，它依然是一个构建选项（<code>--disable-gil</code>）。但这一版本标志着 CPython 从“由于 GIL 存在而只能并发”向“真正的并行运行时”的实质性跨越。No-GIL 并非没有代价，即便使用了有偏引用计数，为了维护线程安全，解释器在执行字节码时仍需进行额外的检查（例如延迟引用计数的处理）。目前的基准测试显示，No-GIL 版本在单线程任务上比标准版本慢 10% 左右；同时，你无法直接混用标准 Python 和 No-GIL Python 的扩展模块。 No-GIL 版本拥有独立的 ABI 标签（<code>abi3t</code>，其中 <code>t</code> 代表 threaded），这意味着像 NumPy、PyTorch 这样的 C 扩展库必须专门为 No-GIL 版本进行编译和发布。</li>
+<li>Python 3.14 提出 No-GIL，使用了有偏引用计数（Biased Reference Counting）和 Mimalloc（由微软开发的高性能分配器）。Python 3.14 并不会默认开启 No-GIL，它依然是一个构建选项（<code>--disable-gil</code>）。但这一版本标志着 CPython 从“由于 GIL 存在而只能并发”向“真正的并行运行时”的实质性跨越。No-GIL 并非没有代价，即便使用了有偏引用计数，为了维护线程安全，解释器在执行字节码时仍需进行额外的检查（例如延迟引用计数的处理）。目前的基准测试显示，No-GIL 版本在单线程任务上比标准版本慢 10% 左右；同时，无法直接混用标准 Python 和 No-GIL Python 的扩展模块，No-GIL 版本拥有独立的 ABI 标签（<code>abi3t</code>，其中 <code>t</code> 代表 threaded），这意味着像 NumPy、PyTorch 这样的 C 扩展库必须专门为 No-GIL 版本进行编译和发布。</li>
 </ul>
 <p>GIL 对求值的影响主要体现在它打断了指令流的连续性。解释器不可能在每条字节码指令之后都检查是否有线程想要抢占 GIL，因为原子操作和锁检查的开销相对于简单的指令（如 <code>LOAD_FAST</code>）来说太大了。因此，CPython 采用了一种名为 <code>eval_breaker</code> 的机制。 在 Python 3.10 之前，系统维护一个 <code>tick</code> 计数器，每执行 N 条指令检查一次，当这个标志位被设置时，解释器会暂停当前的字节码执行，去处理信号或释放 GIL 让其他线程运行。在 Python 3.13 中，为了支持 PEP 703（无 GIL 构建），<code>eval_breaker</code> 被移动到了 <code>PyThreadState</code> 结构中 。</p>
 <p>通过 GDB，我们可以直接观察到这个机制在内存中的真实状态。</p>
@@ -329,7 +329,7 @@ $22 = 3130637 // 对应的操作系统原生线程 ID
 <p>实战中，我们通常需要对业务团队提供的 Core Dump（核心转储）文件<span class="sidenote-anchor"></span><span class="sidenote">Core Dump 是进程在终止瞬间的内存、寄存器和执行状态的二进制快照。对于 C/C++ 等编译型语言，使用 GNU Debugger (GDB) 分析 Core Dump 是标准流程。</span>进行分析，这一章节讨论如何使用 GDB 完成这个任务。</p>
 </section><section>
 <h3>Core Dump 文件的生成与内核机制</h3>
-<p>Core Dump 的生成涉及 Linux 内核的信号处理、内存管理以及文件系统交互。当进程接收到某些特定信号（如 <code>SIGSEGV</code>、<code>SIGQUIT</code>、<code>SIGABRT</code>）且未定义自定义处理函数时，内核会触发默认动作：终止进程并生成 Core Dump。这一过程由内核函数 <code>do_coredump()</code> 协调 。当然，也可以使用 <code>gcore</code> 命令对正在运行的进程生成 Core Dump 文件，这通常在调试死锁的问题中使用。</p>
+<p>Core Dump 的生成涉及 Linux 内核的信号处理、内存管理以及文件系统交互。当进程接收到某些特定信号（如 <code>SIGSEGV</code>、<code>SIGQUIT</code>、<code>SIGABRT</code>）且未定义自定义处理函数时，内核会触发默认动作：终止进程并生成 Core Dump。这一过程由内核函数 <code>do_coredump()</code> 协调。当然，也可以使用 <code>gcore</code> 命令对正在运行的进程生成 Core Dump 文件，这通常在调试死锁的问题中使用。</p>
 <p>Linux 系统出于磁盘空间和性能考虑，通常将 Core 文件大小限制默认为零，我们需要使用下面的指令显式解除此限制。对于由 systemd 管理的守护进程，需要在 Unit 文件中设置 <code>LimitCORE=infinity</code>。</p>
 <pre><span class="line-number"><span>1</span></span><code class="language-shell">$ ulimit -c unlimited
 </code></pre>
