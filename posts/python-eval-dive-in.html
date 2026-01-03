@@ -75,10 +75,10 @@
 </section><section>
 <h2>字节码与虚拟机</h2>
 <p>在深入之前，首先需要理解 Python 是如何被“翻译/执行”的。</p>
-<p>Python 并非纯粹的解释型语言。实际上，CPython 拥有一个严格的编译阶段。当 Python 程序执行时，源代码首先被编译成一种名为<strong>字节码</strong>（Bytecode）的中间表示（Intermediate Representation, IR）。这种字节码是特定于 <strong>Python 虚拟机</strong>（Python Virtual Machine, PVM）的低级指令集。虚拟机加载字节码对象，逐条执行指令，操纵堆栈和内存对象 。</p>
+<p>Python 并非纯粹的解释型语言。实际上，CPython 拥有一个严格的编译阶段。当 Python 程序执行时，源代码首先被编译成一种名为字节码（Bytecode）的中间表示（Intermediate Representation, IR）。这种字节码是特定于Python 虚拟机（Python Virtual Machine, PVM）的低级指令集。虚拟机加载字节码对象，逐条执行指令，操纵堆栈和内存对象。</p>
 </section><section>
 <h3>PyCodeObject 与其序列化</h3>
-<p>Python 的编译单元是代码对象（Code Object），在 C 语言层面，它对应 <code>PyCodeObject</code> 结构体；在 Python 层面，它是 <code>types.CodeType</code> 的实例。 代码对象是不可变（immutable）的，它包含了虚拟机执行一段代码所需的所有静态信息。下面是 PyCodeObject 定义的代码片断<span class="sidenote-anchor"></span><span class="sidenote">本文的代码片段旨在展示核心原理，并非完整的类结构或逻辑链路。</span>：</p>
+<p>Python 的编译单元是代码对象（Code Object），在 C 语言层面，它对应 <code>PyCodeObject</code> 结构体；在 Python 层面，它是 <code>types.CodeType</code> 的实例。代码对象是不可变（immutable）的，它包含了虚拟机执行一段代码所需的所有静态信息。下面是 <code>PyCodeObject</code> 定义的代码片断<span class="sidenote-anchor"></span><span class="sidenote">本文的代码片段旨在展示核心原理，并非完整的类结构或逻辑链路。</span>：</p>
 <pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span></span><code class="language-c">struct PyCodeObject _PyCode_DEF(1);
 
 #define _PyCode_DEF(SIZE) {                                                    \
@@ -200,8 +200,8 @@ print(f&quot;Patched:  {target_func(5, 5)}&quot;)
 </code></pre>
 </section><section>
 <h3>虚拟机架构：基于堆栈的计算模型</h3>
-<p>CPython 虚拟机是一个堆栈机器（Stack Machine）。与基于寄存器的虚拟机（如 Lua VM 或 Dalvik）不同，PVM 的指令通常不包含显式的操作数地址，而是隐式地从堆栈顶部获取操作数。</p>
-<p>我曾开发过一个名为 <a href="https://github.com/wongsingfo/lightning-ac">lightning-ac 的栈式虚拟机玩具项目</a>，其核心代码仅有 400 行。该项目的核心设计思路是为了解决在 LeetCode 等算法平台提交代码时的隐私问题。我设计了一套堆栈机器的指令集，在提交时，只需提供一个约 100 行的微型虚拟机解释器以及编译好的字节码指令流，即可在保护核心逻辑不被窥视的同时完成题目交付。项目已完整通过了汉诺塔和快速排序的测试。当然这只是玩具，执行时间是原生 C 程序的 4 到 10 倍；而且我没有实现从 C 程序到指令集的编译器，需要手写 IR 指令，非常需要耐心。</p>
+<p>CPython 虚拟机是一个堆栈机器（Stack Machine）。与基于寄存器的虚拟机（如 Lua VM 或 Dalvik<span class="sidenote-anchor"></span><span class="sidenote">Dalvik 是 Google 为 Android 平台设计的 Java 虚拟机（JVM）变体。</span>）不同，PVM 的指令通常不包含显式的操作数地址，而是隐式地从堆栈顶部获取操作数。</p>
+<p>我曾开发过一个名为 <a href="https://github.com/wongsingfo/lightning-ac">lightning-ac 的栈式虚拟机玩具项目</a>，其核心代码仅有 400 行。该项目的核心设计思路是为了解决在 LeetCode 等算法平台提交代码时的隐私问题。项目设计了一套堆栈机器的指令集，在提交时，只需提供一个约 100 行的微型虚拟机解释器以及编译好的字节码指令流，即可在保护核心逻辑不被窥视的同时完成题目交付。项目已完整通过了汉诺塔和快速排序的测试。当然这只是玩具，执行时间是原生 C 程序的 4 到 10 倍；而且我没有实现从 C 程序到指令集的编译器，需要手写 IR 指令，非常需要耐心。</p>
 <p>继续使用上一个小章节的例子，从 <code>dis.dis</code> 的输出可以看到计算过程：</p>
 <table><thead><tr><th style="text-align: left">行号</th><th style="text-align: left">字节码指令</th><th style="text-align: left">操作数</th><th style="text-align: left">栈的变化</th><th style="text-align: left">语义说明</th></tr></thead><tbody>
 <tr><td style="text-align: left"><strong>3</strong></td><td style="text-align: left"><code>RESUME</code></td><td style="text-align: left"><code>0</code></td><td style="text-align: left"><code>[]</code></td><td style="text-align: left">no-op，用于调试、安全检查</td></tr>
@@ -222,7 +222,7 @@ print(f&quot;Patched:  {target_func(5, 5)}&quot;)
     value2 = PyStackRef_DUP(GETLOCAL(oparg2));
 }
 </code></pre>
-<p>CPython 目前采用分层执行架构，通过两套不同的系统来平衡通用性与高性能。Tier 1 是标准的字节码解释器，其入口位于 <code>_PyEval_EvalFrameDefault</code>（该函数是虚拟机的“心脏”，位于<code>Python/ceval.c</code>）。当某些代码路径被识别为“热点”时，系统会将其转换为微操作（uops） 序列，并进入 Tier 2 层（Python 3.12 引入此特性）。Tier 2 可以进一步选择通过解释器运行，或者由 JIT（即时编译器）编译为机器码。</p>
+<p>CPython 目前采用分层执行架构，通过两套不同的系统来平衡通用性与高性能。Tier 1 是标准的字节码解释器，其入口位于 <code>_PyEval_EvalFrameDefault</code>（该函数是求值的核心入口函数，位于<code>Python/ceval.c</code>）。当某些代码路径被识别为“热点”时，系统会将其转换为微操作（uops） 序列，并进入 Tier 2 层（Python 3.12 引入此特性）。Tier 2 可以进一步选择通过解释器运行，或者由 JIT（即时编译器）编译为机器码。</p>
 <pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span>29</span></span><code class="language-c">PyObject* _Py_HOT_FUNCTION DONT_SLP_VECTORIZE
 _PyEval_EvalFrameDefault(PyThreadState *tstate, _PyInterpreterFrame *frame, int throwflag)
 {
@@ -265,7 +265,7 @@ _PyTier2Interpreter(
 <p><code>_PyInterpreterFrame</code> (内部帧)：这是虚拟机实际使用的帧。它是一个轻量级的 C 结构体，通常分配在解释器的“数据栈”（Data Stack）上。它不是 <code>PyObject</code>，没有引用计数头部，创建和销毁几乎没有开销（仅是指针移动）。它包含了执行所需的所有状态，如指令指针、局部变量数组等 。</p>
 </li>
 <li>
-<p><code>PyFrameObject</code> (外部帧)：这仍然是一个 Python 对象，但它变成了一个“懒加载”的代理包装器。只有当用户代码（如通过 <code>sys._getframe()</code>）或调试器显式请求访问帧对象时，解释器才会从堆上分配一个 <code>PyFrameObject</code>，并将其指向对应的 <code>_PyInterpreterFrame</code>。如果代码不进行内省<span class="sidenote-anchor"></span><span class="sidenote">内省(Introspection)是指程序在运行时检查对象、类或函数的类型、属性和能力的一种能力。另一个相关的概念是反射 (Reflection)，反射包含了内省，并在此基础上允许程序在运行时修改自身的行为或结构。</span>，这个对象可能永远不会被创建 。</p>
+<p><code>PyFrameObject</code> (外部帧)：这仍然是一个 Python 对象，但它变成了一个“懒加载”的代理包装器。只有当用户代码（如通过 <code>sys._getframe()</code>, <code>inspect.stack()</code>）或调试器显式请求访问帧对象时，解释器才会从堆上分配一个 <code>PyFrameObject</code>，并将其指向对应的 <code>_PyInterpreterFrame</code>。如果代码不进行内省<span class="sidenote-anchor"></span><span class="sidenote">内省(Introspection)是指程序在运行时检查对象、类或函数的类型、属性和能力的一种能力。另一个相关的概念是反射 (Reflection)，反射包含了内省，并在此基础上允许程序在运行时修改自身的行为或结构。</span>，这个对象可能永远不会被创建 。</p>
 </li>
 </ul>
 <pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span></span><code class="language-c">typedef struct _PyInterpreterFrame {
@@ -280,7 +280,7 @@ _PyTier2Interpreter(
     _PyStackRef *stackpointer;
 } _PyInterpreterFrame;
 </code></pre>
-<p>Python 3.11 引入了基于数据栈的执行模型。当一个 Python 函数调用另一个 Python 函数时，解释器不再递归调用 C 函数 <code>_PyEval_EvalFrame</code>，而是简单地在预分配的“数据栈”上初始化一个新的 <code>_PyInterpreterFrame</code>，更新状态指针，然后通过 goto 跳转到解释器循环的开始处。这种技术实际上实现了类似于尾调用优化（Tail call optimization）的效果，使得大部分 Python 函数调用不再消耗 C 栈空间 。 这种设计带来的连锁反应是巨大的：<code>PyFrame_GetBack()</code> 变得复杂了，因为它可能需要跨越 C 栈边界去寻找上一个帧；而对于调试来说，直接读取内存中的帧链表变得异常困难。</p>
+<p>Python 3.11 引入了基于数据栈的执行模型。当一个 Python 函数调用另一个 Python 函数时，解释器不再递归调用 C 函数 <code>_PyEval_EvalFrame</code>，而是简单地在预分配的“数据栈”上初始化一个新的 <code>_PyInterpreterFrame</code>，更新状态指针，然后通过 goto 跳转到解释器循环的开始处。这种技术实际上实现了类似于尾调用优化（Tail call optimization）的效果，使得大部分 Python 函数调用不再消耗 C 栈空间 。这种设计对调试带来不小影响，在 C 栈中我们看到的一个 <code>_PyEval_EvalFrameDefault</code> 调用 可能实际上对应着多个 Python 函数的调用。</p>
 </section><section>
 <h3>内存布局与栈架构</h3>
 <p>我们需要区分两个“栈”的概念：</p>
@@ -298,11 +298,21 @@ _PyTier2Interpreter(
 </section><section>
 <h3>核心执行循环</h3>
 <p>所有 Python 代码的执行最终都会进入 <code>_PyEval_EvalFrameDefault</code> 函数（或其变体）。这个函数的核心是一个无限 for 循环，循环体内包含一个巨大的 switch 语句（或计算跳转表），根据当前字节码指令（Opcode）进行分发 。</p>
-<p>CPython 提供了一个允许替换默认求值函数的 API：<code>_PyInterpreterState_SetEvalFrameFunc</code>。这允许第三方工具（如 JIT 编译器 Pyjion，或者调试器）拦截帧的执行。当创建一个新帧时，解释器会调用 <code>tstate-&gt;interp-&gt;eval_frame(tstate, frame, throwflag)</code>。默认情况下，这个指针指向 <code>_PyEval_EvalFrameDefault</code>。但是，如果安装了 JIT，它可以指向一个编译成机器码的函数，完全绕过 <code>ceval.c</code> 的字节码解释循环。在 Python 3.11 中，为了优化性能，如果 <code>eval_frame</code> 为 <code>NULL</code>，则直接内联调用默认解释器，避免了函数指针调用的开销。</p>
+<p>CPython 提供了一个允许替换默认求值函数的 API：<code>_PyInterpreterState_SetEvalFrameFunc</code>。这允许第三方工具（如 JIT 编译器 Pyjion，或者调试器）拦截帧的执行。当创建一个新帧时，解释器会调用 <code>tstate-&gt;interp-&gt;eval_frame(tstate, frame, throwflag)</code>。默认情况下，这个指针指向 <code>_PyEval_EvalFrameDefault</code>。但是，如果安装了 JIT，它可以指向一个编译成机器码的函数，完全绕过 <code>ceval.c</code> 的字节码解释循环。在 Python 3.11 中，为了优化性能，如果 <code>eval_frame</code> 为 <code>NULL</code>，则直接调用默认解释器，避免了函数指针调用的开销。</p>
+<pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span><code class="language-c">static inline PyObject*
+_PyEval_EvalFrame(PyThreadState *tstate, _PyInterpreterFrame *frame, int throwflag)
+{
+    EVAL_CALL_STAT_INC(EVAL_CALL_TOTAL);
+    if (tstate-&gt;interp-&gt;eval_frame == NULL) {
+        return _PyEval_EvalFrameDefault(tstate, frame, throwflag);
+    }
+    return tstate-&gt;interp-&gt;eval_frame(tstate, frame, throwflag);
+}
+</code></pre>
 <p>我们可以用 <code>sys.settrace</code> 在每行代码或每个函数调用时介入。当 <code>sys.settrace</code> 被激活时，线程状态 <code>tstate-&gt;cframe-&gt;use_tracing</code> 标志被设置。解释器循环会放弃使用优化的特化指令（Specialized Instructions）<span class="sidenote-anchor"></span><span class="sidenote">CPython 引入了 PEP 659 (Specializing Adaptive Interpreter)。以一个简单的字节码指令 <code>BINARY_OP</code> 为例： 在执行之前，虚拟机并不知道操作数是什么，它必须在运行时进行繁琐的检查。如果虚拟机发现这行代码连续多次都在处理两个整数相加，它就会把这条指令原地替换为专门处理整数的特化版本：<code>BINARY_OP_ADD_INT</code>。</span>，转而进入 legacy tracing 路径。这会导致性能显著下降（可能慢 10 倍以上），因为解释器必须在每条指令或每行代码边界暂停，构造帧对象，并调用 Python 回调函数 。</p>
 </section><section>
 <h3>生成器与协程的帧状态管理</h3>
-<p>生成器（Generator）和协程（Coroutine）都<span class="sidenote-anchor"></span><span class="sidenote">从底层实现看，协程的挂起同样依赖 <code>yield</code>。<code>await expr</code> 本质上是调用 <code>expr.__await__()</code>，而该迭代器最终通过 <code>yield</code> 实现非阻塞挂起。</span>通过 <code>yield</code> 关键字实现了函数的暂停和恢复。普通函数的帧在其返回后就可以销毁（在 3.11+ 中是从 C 栈中弹出）。但生成器不同，当它 <code>yield</code> 时，函数并未结束，其局部变量状态必须保留，以便下次恢复。因此，生成器的帧必须分配在堆上，或者其状态必须能够从栈上“逃逸”到堆上。 在 Python 3.11 的实现中，当执行 <code>RETURN_GENERATOR</code> 指令时，解释器会创建一个生成器对象，并将当前的 <code>_PyInterpreterFrame</code> 状态复制或关联到这个生成器对象中。这使得帧的生命周期与生成器对象的生命周期绑定。</p>
+<p>生成器（Generator）和协程（Coroutine）都<span class="sidenote-anchor"></span><span class="sidenote">从底层实现看，协程的挂起同样依赖 <code>yield</code>。<code>await something</code> 本质上是调用 <code>something.__await__()</code>，最终通过 <code>yield</code> 实现非阻塞挂起。</span>通过 <code>yield</code> 关键字实现了函数的暂停和恢复。普通函数的帧在其返回后就可以销毁（在 3.11+ 中是从 C 栈中弹出）。但生成器不同，当它 <code>yield</code> 时，函数并未结束，其局部变量状态必须保留，以便下次恢复。因此，生成器的帧必须分配在堆上，或者其状态必须能够从栈上“逃逸”到堆上。 在 Python 3.11 的实现中，当执行 <code>RETURN_GENERATOR</code> 指令时，解释器会创建一个生成器对象，并将当前的 <code>_PyInterpreterFrame</code> 状态复制或关联到这个生成器对象中。这使得帧的生命周期与生成器对象的生命周期绑定。</p>
 </section><section>
 <h3>GIL 锁与求值计算</h3>
 <p>全局解释器锁（Global Interpreter Lock，简称 GIL）是 CPython 解释器中最为核心且最具争议的同步原语，GIL 并非 Python 语言规范的一部分，而是 CPython 实现层面的产物。尽管其初衷是保护非线程安全的 CPython 内存管理机制，保证只有一个线程能够持有对 Python 对象及其内存管理器的写权限，但在多核处理器普及的今天，GIL 已成为限制 Python 并行计算能力的主要瓶颈。</p>
@@ -316,20 +326,20 @@ _PyTier2Interpreter(
 <p>通过 GDB，我们可以直接观察到这个机制在内存中的真实状态。</p>
 <pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span><code class="language-">// 以 Python 3.14 为例
 (gdb) print _PyRuntime.interpreters.main.ceval.gil.locked
-$20 = 1  // 锁状态：1 表示当前 GIL 被占用
+$1 = 1  // 锁状态：1 表示当前 GIL 被占用
 
 (gdb) print _PyRuntime.interpreters.main.ceval.gil.last_holder
-$21 = (PyThreadState *) 0x555555bd1538 &lt;_PyRuntime+331640&gt; // 指向当前持有锁的线程状态对象
+$2 = (PyThreadState *) 0x555555bd1538 &lt;_PyRuntime+331640&gt; // 指向当前持有锁的线程状态对象
 
 (gdb) print _PyRuntime.interpreters.main.ceval.gil.last_holder-&gt;native_thread_id
-$22 = 3130637 // 对应的操作系统原生线程 ID
+$3 = 3130637 // 对应的操作系统原生线程 ID
 </code></pre>
 </section><section>
 <h2>在 GDB 中查看 Python 语义</h2>
 <p>实战中，我们通常需要对业务团队提供的 Core Dump（核心转储）文件<span class="sidenote-anchor"></span><span class="sidenote">Core Dump 是进程在终止瞬间的内存、寄存器和执行状态的二进制快照。对于 C/C++ 等编译型语言，使用 GNU Debugger (GDB) 分析 Core Dump 是标准流程。</span>进行分析，这一章节讨论如何使用 GDB 完成这个任务。</p>
 </section><section>
 <h3>Core Dump 文件的生成与内核机制</h3>
-<p>Core Dump 的生成涉及 Linux 内核的信号处理、内存管理以及文件系统交互。当进程接收到某些特定信号（如 <code>SIGSEGV</code>、<code>SIGQUIT</code>、<code>SIGABRT</code>）且未定义自定义处理函数时，内核会触发默认动作：终止进程并生成 Core Dump。这一过程由内核函数 <code>do_coredump()</code> 协调。当然，也可以使用 <code>gcore</code> 命令对正在运行的进程生成 Core Dump 文件，这通常在调试死锁的问题中使用。</p>
+<p>Core Dump 的生成涉及 Linux 内核的信号处理、内存管理以及文件系统交互。当进程接收到某些特定信号（如 <code>SIGSEGV</code>、<code>SIGQUIT</code>、<code>SIGABRT</code>）且未定义自定义处理函数时，内核会触发默认动作：终止进程并生成 Core Dump。这一过程由内核函数 <code>do_coredump</code> 或 <a href="https://github.com/torvalds/linux/blob/7a0892d2/fs/coredump.c#L1089"><code>vfs_coredump</code></a> 协调。当然，也可以使用 <a href="https://man7.org/linux/man-pages/man1/gcore.1.html"><code>gcore</code> 命令</a>对正在运行的进程生成 Core Dump 文件，这通常在调试死锁的问题中使用。</p>
 <p>Linux 系统出于磁盘空间和性能考虑，通常将 Core 文件大小限制默认为零，我们需要使用下面的指令显式解除此限制。对于由 systemd 管理的守护进程，需要在 Unit 文件中设置 <code>LimitCORE=infinity</code>。</p>
 <pre><span class="line-number"><span>1</span></span><code class="language-shell">$ ulimit -c unlimited
 </code></pre>
