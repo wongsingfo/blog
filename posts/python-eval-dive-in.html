@@ -315,14 +315,14 @@ _PyEval_EvalFrame(PyThreadState *tstate, _PyInterpreterFrame *frame, int throwfl
 <p>生成器（Generator）和协程（Coroutine）都<span class="sidenote-anchor"></span><span class="sidenote">从底层实现看，协程的挂起同样依赖 <code>yield</code>。<code>await something</code> 本质上是调用 <code>something.__await__()</code>，最终通过 <code>yield</code> 实现非阻塞挂起。</span>通过 <code>yield</code> 关键字实现了函数的暂停和恢复。普通函数的帧在其返回后就可以销毁（在 3.11+ 中是从 C 栈中弹出）。但生成器不同，当它 <code>yield</code> 时，函数并未结束，其局部变量状态必须保留，以便下次恢复。因此，生成器的帧必须分配在堆上，或者其状态必须能够从栈上“逃逸”到堆上。 在 Python 3.11 的实现中，当执行 <code>RETURN_GENERATOR</code> 指令时，解释器会创建一个生成器对象，并将当前的 <code>_PyInterpreterFrame</code> 状态复制或关联到这个生成器对象中。这使得帧的生命周期与生成器对象的生命周期绑定。</p>
 </section><section>
 <h3>GIL 锁与求值计算</h3>
-<p>全局解释器锁（Global Interpreter Lock，简称 GIL）是 CPython 解释器中最为核心且最具争议的同步原语，GIL 并非 Python 语言规范的一部分，而是 CPython 实现层面的产物。尽管其初衷是保护非线程安全的 CPython 内存管理机制，保证只有一个线程能够持有对 Python 对象及其内存管理器的写权限，但在多核处理器普及的今天，GIL 已成为限制 Python 并行计算能力的主要瓶颈。</p>
+<p>全局解释器锁（Global Interpreter Lock，简称 GIL）是 CPython 解释器中最为核心且最具争议的同步原语，GIL 并非 Python 语言规范的一部分，而是 CPython 实现层面的产物。<a href="https://www.jython.org/">Jython</a>, <a href="https://github.com/exaloop/codon">Codon</a> 等其他 Python 实现就不包含 GIL 锁。尽管其初衷是保护非线程安全的 CPython 内存管理机制，保证只有一个线程能够持有对 Python 对象及其内存管理器的写权限，但在多核处理器普及的今天，GIL 已成为限制 Python 并行计算能力的主要瓶颈。</p>
 <p>GIL 锁的实现演进：</p>
 <ul>
 <li>在很长一段时间里（Python 3.12 之前），GIL 的状态存储在进程级的全局变量 <code>_PyRuntimeState</code> 中（符号表中通常显示为 <code>_PyRuntime</code>）。这意味着整个进程共享这一把锁，无论你开启了多少个线程。</li>
-<li>随着 Python 3.13 的发布以及 PEP 684（Per-Interpreter GIL）的推进，情况发生了本质的变化。为了支持真正的多解释器并行，绝大多数运行时状态——包括 GIL 本身——正在从全局的 <code>_PyRuntime</code> 迁移到每个解释器独有的 <code>PyInterpreterState</code> 结构中。</li>
+<li>随着 Python 3.13 的发布以及 PEP 684（Per-Interpreter GIL）的推进，情况发生了本质的变化。为了支持真正的多解释器并行<span class="sidenote-anchor"></span><span class="sidenote">注意，多解释器并行并不等同于 Python 中的多线程。一个解释器可以包含多个线程。如果你在一个解释器内部启动了若干个线程，这些线程依然要争夺解释器的那一把 GIL。它们之间互斥，不能并行。</span>，绝大多数运行时状态——包括 GIL 本身——正在从全局的 <code>_PyRuntime</code> 迁移到每个解释器独有的 <code>PyInterpreterState</code> 结构中。</li>
 <li>Python 3.14 提出 No-GIL，使用了有偏引用计数（Biased Reference Counting）和 Mimalloc（由微软开发的高性能分配器）。Python 3.14 并不会默认开启 No-GIL，它依然是一个构建选项（<code>--disable-gil</code>）。但这一版本标志着 CPython 从“由于 GIL 存在而只能并发”向“真正的并行运行时”的实质性跨越。No-GIL 并非没有代价，即便使用了有偏引用计数，为了维护线程安全，解释器在执行字节码时仍需进行额外的检查（例如延迟引用计数的处理）。目前的基准测试显示，No-GIL 版本在单线程任务上比标准版本慢 10% 左右；同时，无法直接混用标准 Python 和 No-GIL Python 的扩展模块，No-GIL 版本拥有独立的 ABI 标签（<code>abi3t</code>，其中 <code>t</code> 代表 threaded），这意味着像 NumPy、PyTorch 这样的 C 扩展库必须专门为 No-GIL 版本进行编译和发布。</li>
 </ul>
-<p>GIL 对求值的影响主要体现在它打断了指令流的连续性。解释器不可能在每条字节码指令之后都检查是否有线程想要抢占 GIL，因为原子操作和锁检查的开销相对于简单的指令（如 <code>LOAD_FAST</code>）来说太大了。因此，CPython 采用了一种名为 <code>eval_breaker</code> 的机制。 在 Python 3.10 之前，系统维护一个 <code>tick</code> 计数器，每执行 N 条指令检查一次，当这个标志位被设置时，解释器会暂停当前的字节码执行，去处理信号或释放 GIL 让其他线程运行。在 Python 3.13 中，为了支持 PEP 703（无 GIL 构建），<code>eval_breaker</code> 被移动到了 <code>PyThreadState</code> 结构中 。</p>
+<p>GIL 对求值的影响主要体现在它打断了指令流的连续性。解释器不可能在每条字节码指令之后都检查是否有线程想要抢占 GIL，因为原子操作和锁检查的开销相对于简单的指令（如 <code>LOAD_FAST</code>）来说太大了。因此，CPython 采用了一种名为 <code>eval_breaker</code> 的机制。 在 Python 3.10 之前，系统维护一个 <code>tick</code> 计数器，每执行 N 条指令检查一次，当这个标志位被设置时，解释器会暂停当前的字节码执行，去处理信号或释放 GIL 让其他线程运行。在 Python 3.13 中，为了支持未来的 No-GIL 构建，<code>eval_breaker</code> 被移动到了 <code>PyThreadState</code> 结构中 。</p>
 <p>通过 GDB，我们可以直接观察到这个机制在内存中的真实状态。</p>
 <pre><span class="line-number"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></span><code class="language-">// 以 Python 3.14 为例
 (gdb) print _PyRuntime.interpreters.main.ceval.gil.locked
