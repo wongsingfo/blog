@@ -94,6 +94,161 @@
 </tbody></table>
 <p>估值买入法在资金略少、利用率略低的情况下，取得了更高的资金加权与年化收益，投资效率更佳。</p>
 </section><section>
+<h2>实时数据</h2>
+<p>下方是基于最新数据的实时估值分析图。该图表使用 515100 ETF 的历史价格数据（数据由东方财富接口提供），并在浏览器端实时进行“价格 vs 内在价值”的拟合分析。注意，这里使用的是 ETF 的<strong>后复权</strong>数据，更能反映考虑分红复投后的真实收益情况。</p>
+<div id="realtime-chart" style="width: 100%; height: 600px; margin: 20px 0; border: 1px solid #eee; overflow-y: auto"></div>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script>
+window.onload = function() {
+    loadRealtimeData();
+};
+
+function loadRealtimeData() {
+    // Create JSONP script
+    var script = document.createElement('script');
+    // Using the user provided URL with lmt=3000 to get enough history for fitting, and adding cb=processData
+    var url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f53&ut=7eea3edcaed734bea9cbfc24409ed989&klt=101&fqt=2&secid=1.515100&beg=0&end=20500101&lmt=3000&cb=processData";
+    script.src = url;
+    document.body.appendChild(script);
+}
+
+function processData(data) {
+    if (!data || !data.data || !data.data.klines) {
+        console.error('数据加载失败');
+        document.getElementById('realtime-chart').innerHTML = '数据加载失败，请刷新重试';
+        return;
+    }
+
+    var klines = data.data.klines;
+    var dates = [];
+    var prices = [];
+    var logPrices = [];
+    var days = [];
+
+    // Parse data
+    var startDate = null;
+    for (var i = 0; i < klines.length; i++) {
+        var parts = klines[i].split(',');
+        var dateStr = parts[0];
+        var price = parseFloat(parts[1]);
+
+        dates.push(dateStr);
+        prices.push(price);
+        logPrices.push(Math.log(price));
+        days.push(i);
+    }
+
+    // Linear Regression on Log Price: ln(P) = A + B * t
+    var n = days.length;
+    var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (var i = 0; i < n; i++) {
+        sumX += days[i];
+        sumY += logPrices[i];
+        sumXY += days[i] * logPrices[i];
+        sumXX += days[i] * days[i];
+    }
+
+    var slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    var intercept = (sumY - slope * sumX) / n;
+
+    // Calculate Intrinsic Value and Ratio
+    var intrinsicValues = [];
+    var ratios = [];
+    var valuationUpper = []; // 1.0
+    var valuationLower = []; // 1.0
+
+    for (var i = 0; i < n; i++) {
+        var iv = Math.exp(intercept + slope * days[i]);
+        intrinsicValues.push(iv.toFixed(3));
+        var ratio = price = prices[i] / iv;
+        ratios.push(ratio.toFixed(3));
+    }
+
+    renderChart(dates, prices, intrinsicValues, ratios);
+
+    // document.getElementById('load-chart-btn').style.display = 'none';
+    // document.getElementById('realtime-chart').style.display = 'block';
+}
+
+function renderChart(dates, prices, intrinsicValues, ratios) {
+    var chartDom = document.getElementById('realtime-chart');
+    var myChart = echarts.init(chartDom);
+    var option = {
+        title: {
+            text: '515100 价格 vs 内在价值 (实时拟合)',
+            left: 'center'
+        },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'cross' }
+        },
+        legend: {
+            data: ['真实价格', '内在价值', '估值比率'],
+            top: 30
+        },
+        grid: [
+            { left: '5%', right: '5%', top: '15%', height: '45%', containLabel: true },
+            { left: '5%', right: '5%', top: '68%', height: '25%', containLabel: true }
+        ],
+        xAxis: [
+            { type: 'category', data: dates, gridIndex: 0 },
+            { type: 'category', data: dates, gridIndex: 1, show: false }
+        ],
+        yAxis: [
+            { type: 'value', name: '价格', gridIndex: 0, scale: true },
+            { type: 'value', name: '比率', gridIndex: 1, scale: true, splitLine: { show: false } }
+        ],
+        series: [
+            {
+                name: '真实价格',
+                type: 'line',
+                data: prices,
+                itemStyle: { color: '#1f77b4' },
+                showSymbol: false,
+                xAxisIndex: 0,
+                yAxisIndex: 0
+            },
+            {
+                name: '内在价值',
+                type: 'line',
+                data: intrinsicValues,
+                itemStyle: { color: '#ff7f0e', type: 'dashed' },
+                lineStyle: { type: 'dashed' },
+                showSymbol: false,
+                xAxisIndex: 0,
+                yAxisIndex: 0
+            },
+            {
+                name: '估值比率',
+                type: 'line',
+                data: ratios,
+                xAxisIndex: 1,
+                yAxisIndex: 1,
+                itemStyle: { color: '#d62728' },
+                showSymbol: false,
+                markLine: {
+                    data: [{ yAxis: 1.0, name: '中性线' }],
+                    symbol: 'none',
+                    lineStyle: { color: '#333' }
+                },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(214, 39, 40, 0.5)' }, // High
+                        { offset: 1, color: 'rgba(44, 160, 44, 0.5)' }  // Low (This gradient is simplistic, assumes >1 is high, <1 is low)
+                    ])
+                }
+            }
+        ],
+        dataZoom: [
+            { type: 'inside', xAxisIndex: [0, 1] },
+            { type: 'slider', xAxisIndex: [0, 1] }
+        ]
+    };
+
+    myChart.setOption(option);
+}
+</script>
+</section><section>
 <h2>结果与讨论</h2>
 <p>本次回测结果显示：</p>
 <ul>
@@ -105,6 +260,7 @@
 <li>估值线采用的是“事后回顾式拟合”，估值线隐含使用了未来信息。但我认为前提假设“内在价值是按固定比例每日增长的”是相当合理的。股票市场长期呈现稳定的复合增长趋势，而非线性增长或随机漂移。因为红利低波的盈利波动比市场总体更平稳，所以只需要更少的数据就可以做相对准确的拟合。</li>
 <li>没有考虑手续费、分红税、基金跟踪误差、基金管理费用。</li>
 <li>相比于“低估区域立刻用手头所有现金买入”，可能有更好的策略，值得进一步探索。</li>
+<li>回测未结合宏观经济周期进行归因分析，同时跟无风险收益率进行机会成本的比较。</li>
 </ul>
 <p>最后注意，过去表现不代表未来。市场有风险，投资需谨慎！！</p>
 
